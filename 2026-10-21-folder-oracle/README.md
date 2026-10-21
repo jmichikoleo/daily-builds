@@ -122,4 +122,4 @@ Tokenization is lowercase alphanumeric words, a small stopword list (so "how" an
 
 RAG systems start with retrieval, and BM25 is still the baseline that fancy embedding retrievers get compared against (and often combined with). Building it by hand in about 300 lines makes the "R" in RAG concrete, and leaves behind a small tool that is actually handy for searching a messy notes folder.
 
-Built on October 21, 2026, as part of my daily builds challenge: one small, useful project every weekday.
+Built on October 21, 2026
