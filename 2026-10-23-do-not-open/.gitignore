@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+build/
+dist/
+*.egg-info/
+.DS_Store
+# the game saves to ~/Library/Application Support/DO_NOT_OPEN, never here,
+# but just in case someone points DO_NOT_OPEN_HOME at the repo:
+save.json
