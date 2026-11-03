@@ -1,0 +1,13 @@
+# Netlify configuration for Your Year in Stamps (static export, no serverless functions).
+# Headers and clean-URL rewrites live in public/_headers and public/_redirects, which are
+# copied into out/, so they apply to CLI/Git deploys and to Netlify Drop uploads alike.
+
+[build]
+  command = "npm run build"
+  publish = "out"
+
+[build.environment]
+  # Next.js 16 needs Node.js 20.9+.
+  NODE_VERSION = "22"
+  # NEXT_PUBLIC_SITE_URL is optional for Netlify builds (Netlify's URL is used).
+  # For a local build you upload yourself, set it when building.

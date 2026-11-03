@@ -1,0 +1,5 @@
+# The static export writes /create.html *and* a /create/ folder (client navigation data).
+# Map clean URLs to the .html files explicitly so the folder never wins.
+/create   /create.html   200
+/studio   /studio.html   200
+/privacy  /privacy.html  200
