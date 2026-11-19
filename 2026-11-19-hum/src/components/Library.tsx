@@ -73,7 +73,7 @@ export default function Library() {
         )}
       </section>
       <footer className="mt-16 text-center text-xs text-ink-soft">
-        hum. is one of my daily builds. instrument samples are FluidR3 GM from midi-js-soundfonts (CC-BY 3.0)
+        instrument samples are FluidR3 GM from midi-js-soundfonts (CC-BY 3.0)
       </footer>
       <Toaster />
     </div>
