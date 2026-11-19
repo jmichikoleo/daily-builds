@@ -3,7 +3,7 @@
 // and tabs for arrangement, an extra hummed layer and lyrics. Also save + export.
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, Download, FileAudio, FileMusic, Loader2, Minus, Mic2, Play, Plus, Redo2, Repeat, RotateCcw, Square, Trash2, Undo2,
+  ArrowLeft, Mic, Download, FileAudio, FileMusic, Loader2, Minus, Mic2, Play, Plus, Redo2, Repeat, RotateCcw, Square, Trash2, Undo2,
   Wand2, ZoomIn, ZoomOut, Heart, ChevronDown, Palette, Archive,
 } from "lucide-react";
 import { useSong } from "../state/useSong";
@@ -16,13 +16,14 @@ import { buildBackup, readBackup } from "../lib/backup";
 import CoverEditor, { CoverThumb } from "./CoverEditor";
 import { regridNotes } from "../lib/tempo";
 import { deleteVersion, duplicateVersion, renameVersion, saveAsNewVersion, switchVersion } from "../lib/versions";
-import { SECTION_TYPES, addMarker, deleteMarker, moveMarker, pruneLyricLinks, updateMarker } from "../lib/markers";
+import { SECTION_TYPES, addMarker, deleteMarker, markerRange, moveMarker, pruneLyricLinks, updateMarker } from "../lib/markers";
 import { audioBufferToWav, download, safeName, songToMidi } from "../lib/exporters";
 import { PROGRESSIONS, detectKey, keyName, scoreProgression } from "../lib/theory";
 import type { Arrangement, Note, SectionType, Song } from "../lib/types";
 import TempoControl from "./TempoControl";
 import VersionBar from "./VersionBar";
 import MarkerEditor from "./MarkerEditor";
+import RerecordPanel from "./RerecordPanel";
 import RecorderDeck from "./RecorderDeck";
 import PianoRoll from "./PianoRoll";
 import InstrumentPicker from "./InstrumentPicker";
@@ -57,6 +58,8 @@ export default function Studio({ songId }: { songId: string }) {
   const { song, update, undo, redo, resetHistory, saveState, saveNow, canUndo, canRedo, get } = useSong(songId);
   const [selectedMarker, setSelectedMarker] = useState<string | null>(null);
   const [highlightLyric, setHighlightLyric] = useState<string | null>(null);
+  const [rerec, setRerec] = useState<{ start: number; end: number } | null>(null);
+  const [rerecPreview, setRerecPreview] = useState<Note[] | null>(null);
   const [leadBlob, setLeadBlob] = useState<Blob | null>(null);
   const [layerBlob, setLayerBlob] = useState<Blob | null>(null);
   const [voiceBuffer, setVoiceBuffer] = useState<AudioBuffer | null>(null);
@@ -290,6 +293,15 @@ export default function Studio({ songId }: { songId: string }) {
     setSelectedMarker(r.marker.id);
     setHighlightLyric(r.marker.lyricId);
   };
+  const songEnd = song.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
+  const applyRerecord = async (notes: Note[], take: Blob, region: { start: number; end: number }) => {
+    const key = newRecordingKey(song.id, "take");
+    await putBlob(key, take); // kept with the song, the original recording isn't touched
+    edit((s) => ({ ...s, notes, takes: [...s.takes, { id: crypto.randomUUID(), recordingKey: key, start: region.start, end: region.end, createdAt: Date.now() }] }));
+    setRerec(null);
+    await saveNow();
+    toast("new part is in ♡ undo if you change your mind");
+  };
   const partNames: Record<string, string> = {};
   markersShown.forEach((m) => { if (m.lyricId) partNames[m.lyricId] = m.label; });
 
@@ -393,6 +405,11 @@ export default function Studio({ songId }: { songId: string }) {
               <button className="chip" disabled={!selected} onClick={() => { setNotes(song.notes.filter((n) => n.id !== selected)); setSelected(null); }}><Trash2 size={13} /> delete</button>
               <button className="chip" disabled={!hasNotes} onClick={() => setNotes(quantize(song.notes, 0.25))} title="snap every note to the nearest 16th"><Wand2 size={13} /> tidy timing</button>
               <button className="chip" disabled={!song.originalNotes.length} onClick={() => setNotes(song.originalNotes)} title="go back to exactly what you hummed"><RotateCcw size={13} /> reset to original</button>
+              <button className="chip" disabled={!hasNotes || !!rerec} onClick={() => {
+                const sel = song.notes.find((n) => n.id === selected);
+                const r = activeMarker ? markerRange(markersShown, activeMarker.id, songEnd) : sel ? { start: Math.floor(sel.start / 4) * 4, end: Math.floor(sel.start / 4) * 4 + 4 } : { start: 0, end: 4 };
+                if (r) { player.stop(); setRerec(r); }
+              }} title="hum one part again without redoing the whole song"><Mic size={13} /> rerecord a part</button>
               <select value="" onChange={(e) => { if (e.target.value) addPart(e.target.value as SectionType); }}
                 className="rounded-full border border-line bg-white px-2 py-1 text-xs font-bold" aria-label="add a song part">
                 <option value="">+ part</option>
@@ -412,7 +429,8 @@ export default function Studio({ songId }: { songId: string }) {
 
             <PianoRoll
               notes={song.notes}
-              ghostNotes={song.layer ? song.layer.notes.map((n) => ({ ...n, start: n.start + song.layer!.offset })) : []}
+              ghostNotes={rerecPreview ?? (song.layer ? song.layer.notes.map((n) => ({ ...n, start: n.start + song.layer!.offset })) : [])}
+              region={rerec}
               onCommit={setNotes}
               onPreview={(m) => previewNote(song.leadInstrument, m, 0.4)}
               playhead={playhead}
@@ -435,7 +453,12 @@ export default function Studio({ songId }: { songId: string }) {
                 onJump={() => startPlayback(activeMarker.beat)}
                 onOpenLyrics={() => { setTab("lyrics"); setHighlightLyric(activeMarker.lyricId); }}
                 onClose={() => setSelectedMarker(null)}
+                onRerecord={() => { const r = markerRange(markersShown, activeMarker.id, songEnd); if (r) { player.stop(); setRerec(r); } }}
               />
+            )}
+            {rerec && (
+              <RerecordPanel song={song} region={rerec} onRegion={setRerec} onPreviewNotes={setRerecPreview}
+                onApply={applyRerecord} onCancel={() => setRerec(null)} />
             )}
             <p className="mt-2 text-[11px] text-ink-soft">
               drag a note up or down to change the pitch, or sideways to move it. drag the right edge to make it longer. double-click an empty spot to add a note, or a note to delete it. arrow keys nudge it, space plays
