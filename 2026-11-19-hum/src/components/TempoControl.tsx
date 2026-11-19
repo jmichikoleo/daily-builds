@@ -83,7 +83,7 @@ export default function TempoControl({ bpm, transcribedBpm, hasNotes, onSetBpm, 
             </button>
           </div>
           <p className="mt-2 text-[11px] leading-snug text-ink-soft">
-            tip. play your voice, tap along, then pick "fit the beat to my hum" so the drums line up with how you actually sang it
+            play your voice, tap along, then pick "fit the beat to my hum" so the drums line up with how you actually sang it
           </p>
         </div>
       )}
