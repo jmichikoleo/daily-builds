@@ -1,4 +1,5 @@
-// src/components/Studio.tsx — the song page: recorder, melody editor + transport, instrument shelf,
+// src/components/Studio.tsx
+// the song page, recorder, melody editor and transport, instrument shelf,
 // and tabs for arrangement, an extra hummed layer and lyrics. Also save + export.
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -136,11 +137,11 @@ export default function Studio({ songId }: { songId: string }) {
         setLayerBlob(blob);
         setLayerInfo({ peaks: computePeaks(mono), duration: r.durationSec, warning: r.quality.warning });
         edit((x) => ({ ...x, layer: { notes: r.notes, originalNotes: r.notes, instrument: x.layer?.instrument ?? "bells", offset: 0, hasRecording: true } }));
-        if (r.notes.length) toast(`layer added: ${r.notes.length} notes`);
+        if (r.notes.length) toast(`added a layer with ${r.notes.length} notes`);
       }
     } catch (e) {
       console.error(e);
-      toast("couldn't read that audio — try another recording");
+      toast("couldn't read that audio, try another recording");
     } finally {
       setBusy(null);
     }
@@ -171,7 +172,7 @@ export default function Studio({ songId }: { songId: string }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [get, undo, redo, selected, snap, setNotes, startPlayback, refreshPlayback]);
 
-  if (song === undefined) return <p className="p-10 text-center font-hand text-2xl">rewinding the tape…</p>;
+  if (song === undefined) return <p className="p-10 text-center font-hand text-2xl">rewinding the tape...</p>;
   if (song === null) {
     return (
       <div className="p-10 text-center">
@@ -200,7 +201,7 @@ export default function Studio({ songId }: { songId: string }) {
       toast("downloaded ♡");
     } catch (e) {
       console.error(e);
-      toast("export failed — sorry!");
+      toast("export didn't work, try again");
     } finally {
       setExporting(null);
     }
@@ -226,7 +227,7 @@ export default function Studio({ songId }: { songId: string }) {
           maxLength={60}
         />
         <div className="ml-auto flex items-center gap-2">
-          <span className="hidden text-xs text-ink-soft sm:inline">{saveState === "saving" ? "saving…" : saveState === "error" ? "save failed" : "saved on this device"}</span>
+          <span className="hidden text-xs text-ink-soft sm:inline">{saveState === "saving" ? "saving..." : saveState === "error" ? "save failed" : "saved on this device"}</span>
           <button className="key px-3 py-2 text-sm" onClick={async () => { await saveNow(); toast("kept safe ♡"); }} title="keep this little masterpiece">
             <Heart size={14} className="text-rose-deep" fill="#DFA8C8" /> <span className="hidden sm:inline">keep this little masterpiece</span><span className="sm:hidden">save</span>
           </button>
@@ -237,14 +238,14 @@ export default function Studio({ songId }: { songId: string }) {
             {exportOpen && (
               <div className="panel absolute right-0 z-40 mt-2 w-64 p-2 animate-pop">
                 <ExportItem icon={<Mic2 size={16} />} title="original recording" sub={leadBlob ? `your untouched hum (.${extensionFor(leadBlob.type || "")})` : "record something first"} disabled={!leadBlob} onClick={() => doExport("original")} />
-                <ExportItem icon={<FileMusic size={16} />} title="MIDI" sub="every track, for GarageBand / any DAW" disabled={!hasNotes} onClick={() => doExport("midi")} />
-                <ExportItem icon={<FileAudio size={16} />} title="WAV" sub="the instrumental, rendered offline" disabled={!hasNotes} onClick={() => doExport("wav")} />
+                <ExportItem icon={<FileMusic size={16} />} title="MIDI" sub="all the tracks, opens in garageband or any DAW" disabled={!hasNotes} onClick={() => doExport("midi")} />
+                <ExportItem icon={<FileAudio size={16} />} title="WAV" sub="the whole instrumental as one audio file" disabled={!hasNotes} onClick={() => doExport("wav")} />
               </div>
             )}
           </div>
         </div>
       </header>
-      {exporting && <p className="mt-2 text-right text-xs text-ink-soft">rendering your song… (sampled instruments may take a moment)</p>}
+      {exporting && <p className="mt-2 text-right text-xs text-ink-soft">making your wav... the sampled instruments might take a sec</p>}
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
         <div className="min-w-0 space-y-5 lg:col-span-8">
@@ -253,8 +254,8 @@ export default function Studio({ songId }: { songId: string }) {
 
           {/* melody editor */}
           <div className="panel p-4 sm:p-5">
-            <SectionTitle kicker={hasNotes ? "you made that!" : "the melody"} title={hasNotes ? "your melody, as notes" : "your notes will appear here"}>
-              {hasNotes && <span className="text-xs text-ink-soft">{song.notes.length} notes · sounds like {keyName(detectKey(song.notes))}</span>}
+            <SectionTitle kicker={hasNotes ? "you made that!" : "the melody"} title={hasNotes ? "your melody as notes" : "your notes will show up here"}>
+              {hasNotes && <span className="text-xs text-ink-soft">{song.notes.length} notes, sounds like {keyName(detectKey(song.notes))}</span>}
             </SectionTitle>
 
             {song.transcriptionWarning && (
@@ -273,7 +274,7 @@ export default function Studio({ songId }: { songId: string }) {
               <button className="chip" aria-pressed={loop} onClick={() => { setLoop(!loop); playOpts.current.loop = !loop; refreshPlayback(); }} title="loop"><Repeat size={13} /> loop</button>
               <button className="chip" aria-pressed={withVoice && voiceInSync} disabled={!voiceBuffer || !voiceInSync}
                 onClick={() => { setWithVoice(!withVoice); playOpts.current.withVoice = !withVoice; refreshPlayback(); }}
-                title={voiceInSync ? "play your original hum along with the instruments" : `voice blend only works at the original tempo (${song.transcribedBpm} bpm)`}>
+                title={voiceInSync ? "play your original hum along with the instruments" : `your voice only lines up at the original tempo (${song.transcribedBpm} bpm)`}>
                 <Mic2 size={13} /> + my voice
               </button>
               <span className="mx-1 hidden h-6 w-px bg-line sm:block" />
@@ -301,13 +302,13 @@ export default function Studio({ songId }: { songId: string }) {
               }}><Plus size={13} /> note</button>
               <button className="chip" disabled={!selected} onClick={() => { setNotes(song.notes.filter((n) => n.id !== selected)); setSelected(null); }}><Trash2 size={13} /> delete</button>
               <button className="chip" disabled={!hasNotes} onClick={() => setNotes(quantize(song.notes, 0.25))} title="snap every note to the nearest 16th"><Wand2 size={13} /> tidy timing</button>
-              <button className="chip" disabled={!song.originalNotes.length} onClick={() => setNotes(song.originalNotes)} title="go back to exactly what was transcribed"><RotateCcw size={13} /> reset to original</button>
+              <button className="chip" disabled={!song.originalNotes.length} onClick={() => setNotes(song.originalNotes)} title="go back to exactly what you hummed"><RotateCcw size={13} /> reset to original</button>
               <span className="ml-auto flex items-center gap-1">
                 <select value={snap} onChange={(e) => setSnap(+e.target.value)} className="rounded-full border border-line bg-white px-2 py-1 text-xs font-bold" aria-label="snap">
-                  <option value={0}>snap: free</option>
-                  <option value={0.25}>snap: 1/16</option>
-                  <option value={0.5}>snap: 1/8</option>
-                  <option value={1}>snap: beat</option>
+                  <option value={0}>snap off</option>
+                  <option value={0.25}>snap 1/16</option>
+                  <option value={0.5}>snap 1/8</option>
+                  <option value={1}>snap to beat</option>
                 </select>
                 <button className="chip !px-2" onClick={() => setZoom((z) => Math.max(20, z - 12))} aria-label="zoom out"><ZoomOut size={13} /></button>
                 <button className="chip !px-2" onClick={() => setZoom((z) => Math.min(140, z + 12))} aria-label="zoom in"><ZoomIn size={13} /></button>
@@ -327,7 +328,7 @@ export default function Studio({ songId }: { songId: string }) {
               compact={narrow}
             />
             <p className="mt-2 text-[11px] text-ink-soft">
-              drag a note up/down for pitch, sideways for timing · drag its right edge to stretch · double-click empty space to add, a note to delete · arrows nudge · space plays
+              drag a note up or down to change the pitch, or sideways to move it. drag the right edge to make it longer. double-click an empty spot to add a note, or a note to delete it. arrow keys nudge it, space plays
             </p>
           </div>
         </div>
@@ -340,7 +341,7 @@ export default function Studio({ songId }: { songId: string }) {
               volume={song.arrangement.tracks.lead.volume}
               onVolume={(v) => { player.setTrackVolume("lead", v); update((s) => ({ ...s, arrangement: { ...s.arrangement, tracks: { ...s.arrangement.tracks, lead: { ...s.arrangement.tracks.lead, volume: v } } } })); }}
             />
-            <p className="mt-2 px-2 text-xs text-ink-soft">playing on <b>{getInstrument(song.leadInstrument).name}</b>. switching instruments never changes your notes.</p>
+            <p className="mt-2 px-2 text-xs text-ink-soft">playing on <b>{getInstrument(song.leadInstrument).name}</b>. switching instruments won't change your notes</p>
           </div>
         </aside>
       </div>

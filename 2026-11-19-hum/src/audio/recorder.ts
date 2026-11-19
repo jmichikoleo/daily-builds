@@ -1,14 +1,15 @@
-// src/audio/recorder.ts — microphone recording (MediaRecorder) with a live analyser for the waveform.
+// src/audio/recorder.ts
+// microphone recording (MediaRecorder) with a live analyser for the waveform.
 
 export type MicError = "denied" | "no-device" | "insecure" | "unsupported" | "busy" | "unknown";
 
 export const micErrorMessage: Record<MicError, string> = {
-  denied: "microphone access was blocked. allow it in your browser's site settings, then try again.",
-  "no-device": "we couldn't find a microphone. plug one in (or upload a voice memo instead).",
-  insecure: "the mic only works on https or localhost.",
-  unsupported: "this browser can't record audio. try a recent Chrome, Firefox or Safari — or upload a voice memo.",
-  busy: "another app is using the microphone right now.",
-  unknown: "something went wrong starting the microphone.",
+  denied: "your browser blocked the mic. allow it in the site settings and try again",
+  "no-device": "couldn't find a mic. plug one in or just upload a voice memo instead",
+  insecure: "the mic only works on https or localhost",
+  unsupported: "this browser can't record audio. try a recent chrome, firefox or safari, or just upload a voice memo",
+  busy: "another app is using the mic right now",
+  unknown: "something went wrong with the mic, try again",
 };
 
 export async function micPermission(): Promise<"granted" | "denied" | "prompt" | "unknown"> {

@@ -1,4 +1,5 @@
-// src/App.tsx — tiny hash router: #/ is the library, #/song/<id> is the studio.
+// src/App.tsx
+// tiny hash router, #/ is the library, #/song/<id> is the studio.
 import { useEffect, useState } from "react";
 import Library from "./components/Library";
 import Studio from "./components/Studio";

@@ -1,4 +1,5 @@
-// src/lib/exporters.ts — MIDI (multi-track) and WAV encoders, plus a download helper.
+// src/lib/exporters.ts
+// MIDI (multi-track) and WAV encoders, plus a download helper.
 import { Midi } from "@tonejs/midi";
 import { buildTracks } from "../audio/player";
 import { getInstrument } from "../audio/instruments";

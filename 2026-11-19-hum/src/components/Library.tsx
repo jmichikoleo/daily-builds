@@ -1,4 +1,5 @@
-// src/components/Library.tsx — "My Songs": create, open, rename, duplicate, delete.
+// src/components/Library.tsx
+// "My Songs", create, open, rename, duplicate, delete.
 import { useEffect, useState } from "react";
 import { Copy, Pencil, Plus, Trash2, Check, X, Music2 } from "lucide-react";
 import { deleteSong, duplicateSong, listSongs, newSong, saveSong } from "../lib/db";
@@ -37,7 +38,7 @@ export default function Library() {
           for the melodies <em className="font-normal text-rose-deep">stuck</em> in your head.
         </h1>
         <p className="mt-4 max-w-md text-ink-soft">
-          hum it, see it turn into notes, then hear it on piano, harp, synths and more. no instruments, no theory, no account — it all stays on this device.
+          just hum it and it turns into notes. then you can play it on piano, harp, synths, whatever you want. you don't need an instrument or an account, and everything stays on your device
         </p>
         <button onClick={create} className="key mt-7 bg-ink px-7 py-4 text-lg text-white hover:!bg-ink/90" style={{ background: "#39343B", color: "#fff" }}>
           start humming ♡
@@ -47,7 +48,7 @@ export default function Library() {
       <section className="mt-12">
         <div className="mb-4 flex items-end justify-between">
           <div>
-            <p className="font-hand text-xl leading-none text-rose-deep">the archive</p>
+            <p className="font-hand text-xl leading-none text-rose-deep">everything you've hummed</p>
             <h2 className="font-display text-2xl font-semibold">my songs</h2>
           </div>
           {!!songs?.length && (
@@ -56,12 +57,12 @@ export default function Library() {
         </div>
 
         {songs === null ? (
-          <p className="text-ink-soft">opening your notebook…</p>
+          <p className="text-ink-soft">loading your songs...</p>
         ) : songs.length === 0 ? (
           <div className="panel flex flex-col items-center px-6 py-14 text-center">
             <Music2 className="text-rose" size={36} />
             <p className="mt-3 font-display text-xl">no songs yet</p>
-            <p className="mt-1 max-w-sm text-sm text-ink-soft">your first hum will live here, with its notes, instruments and lyrics. press <b>start humming</b> whenever a tune shows up.</p>
+            <p className="mt-1 max-w-sm text-sm text-ink-soft">once you hum something it'll show up here with its notes, instruments and lyrics. just press <b>start humming</b> whenever a tune gets stuck in your head</p>
           </div>
         ) : (
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -72,7 +73,7 @@ export default function Library() {
         )}
       </section>
       <footer className="mt-16 text-center text-xs text-ink-soft">
-        hum. — a daily build · instrument samples: FluidR3 GM via midi-js-soundfonts (CC-BY 3.0)
+        hum. is one of my daily builds. instrument samples are FluidR3 GM from midi-js-soundfonts (CC-BY 3.0)
       </footer>
       <Toaster />
     </div>
@@ -121,7 +122,7 @@ function SongCard({ song, tint, onChanged }: { song: Song; tint: string; onChang
       <div className="mt-3 flex gap-1 border-t border-line pt-3">
         {confirmDelete ? (
           <div className="flex w-full items-center justify-between text-sm">
-            <span>delete forever?</span>
+            <span>delete this for good?</span>
             <span className="flex gap-1">
               <button className="chip !bg-rose-deep !text-white" onClick={async () => { await deleteSong(song.id); toast("song deleted"); onChanged(); }}>delete</button>
               <button className="chip" onClick={() => setConfirmDelete(false)}>keep</button>

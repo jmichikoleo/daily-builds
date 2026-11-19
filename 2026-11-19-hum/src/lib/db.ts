@@ -1,4 +1,5 @@
-// src/lib/db.ts — IndexedDB storage (Dexie): song projects + their raw recordings.
+// src/lib/db.ts
+// IndexedDB storage (Dexie), song projects and their raw recordings.
 import Dexie, { type Table } from "dexie";
 import type { Song, StoredRecording } from "./types";
 import { defaultArrangement } from "./moods";

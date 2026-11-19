@@ -1,4 +1,5 @@
-// tests/transcribe.test.ts — checks the hum transcriber against synthetic "hums" with known notes.
+// tests/transcribe.test.ts
+// checks the hum transcriber against synthetic "hums" with known notes.
 import { describe, expect, it } from "vitest";
 import { transcribe, quantize } from "../src/audio/transcribe";
 

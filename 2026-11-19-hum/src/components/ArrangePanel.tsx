@@ -1,4 +1,5 @@
-// src/components/ArrangePanel.tsx — four-track mini arrangement: moods, key, chord progressions,
+// src/components/ArrangePanel.tsx
+// four-track mini arrangement, moods, key, chord progressions,
 // chord/bass/drum choices and a small mixer (mute / solo / volume).
 import { useMemo } from "react";
 import { Headphones, VolumeX, Wand2 } from "lucide-react";
@@ -15,7 +16,7 @@ const CHORD_STYLES: { id: ChordStyle; label: string }[] = [
   { id: "block", label: "simple" }, { id: "pad", label: "sustained" }, { id: "strum", label: "strummed" }, { id: "arp", label: "arpeggio" }, { id: "stabs", label: "stabs" },
 ];
 const BASS_STYLES: { id: BassStyle; label: string }[] = [
-  { id: "roots", label: "long roots" }, { id: "rootFifth", label: "root–fifth" }, { id: "octaves", label: "octaves" }, { id: "syncopated", label: "bouncy" }, { id: "walking", label: "walking" },
+  { id: "roots", label: "long roots" }, { id: "rootFifth", label: "root and fifth" }, { id: "octaves", label: "octaves" }, { id: "syncopated", label: "bouncy" }, { id: "walking", label: "walking" },
 ];
 
 export default function ArrangePanel({ song, onChange }: Props) {
@@ -32,7 +33,7 @@ export default function ArrangePanel({ song, onChange }: Props) {
     return (
       <div className="panel p-5">
         <SectionTitle kicker="the band" title="give your melody a little company." />
-        <p className="text-sm text-ink-soft">once you've hummed something, chords, bass and drums can join in here.</p>
+        <p className="text-sm text-ink-soft">hum something first, then chords, bass and drums can join in here</p>
       </div>
     );
   }
@@ -66,7 +67,7 @@ export default function ArrangePanel({ song, onChange }: Props) {
         <div>
           <p className="mb-2 flex items-center justify-between text-xs font-extrabold uppercase tracking-wider text-ink-soft">
             key
-            <button className="chip !py-0.5 normal-case tracking-normal" onClick={() => set({ key: detected })} title="use the key detected from your melody">
+            <button className="chip !py-0.5 normal-case tracking-normal" onClick={() => set({ key: detected })} title="use the key your melody is in">
               <Wand2 size={12} /> sounds like {keyName(detected)}
             </button>
           </p>
@@ -80,7 +81,7 @@ export default function ArrangePanel({ song, onChange }: Props) {
             </select>
           </div>
 
-          <p className="mb-2 mt-4 text-xs font-extrabold uppercase tracking-wider text-ink-soft">chords · best fits first</p>
+          <p className="mb-2 mt-4 text-xs font-extrabold uppercase tracking-wider text-ink-soft">chords that fit best</p>
           <ul className="space-y-1.5">
             {ranked.slice(0, 5).map(({ p, score }, i) => {
               const chords = chordsFor(p, a.key);
@@ -90,7 +91,7 @@ export default function ArrangePanel({ song, onChange }: Props) {
                   <button onClick={() => set({ progressionId: p.id })} aria-pressed={sel}
                     className={`flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-sm ${sel ? "border-ink bg-white shadow-[0_0_0_1px_#39343B]" : "border-line bg-white/70 hover:border-rose"}`}>
                     <span>
-                      <span className="font-bold">{chords.map((c) => c.name).join(" – ")}</span>
+                      <span className="font-bold">{chords.map((c) => c.name).join(" → ")}</span>
                       <span className="ml-2 text-xs text-ink-soft">{p.name}</span>
                     </span>
                     <span className="shrink-0 text-[11px] font-bold text-rose-deep">{i === 0 ? "★ " : ""}{Math.round(score * 100)}% fit</span>
@@ -120,7 +121,7 @@ export default function ArrangePanel({ song, onChange }: Props) {
             </select>
           </Row>
           <label className="flex items-center gap-3 text-sm font-bold">
-            space (reverb)
+            reverb
             <input type="range" min={0} max={1} step={0.01} value={a.reverb} onChange={(e) => set({ reverb: +e.target.value })} className="flex-1" />
           </label>
         </div>

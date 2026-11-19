@@ -1,4 +1,5 @@
-// src/components/PianoRoll.tsx — simplified piano roll: drag notes to change pitch/time,
+// src/components/PianoRoll.tsx
+// simplified piano roll, drag notes to change pitch/time,
 // drag the right edge to resize, double-click to add/delete, keyboard nudges.
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Note } from "../lib/types";

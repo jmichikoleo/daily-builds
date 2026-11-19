@@ -1,92 +1,84 @@
 # hum.
 
-*for the melodies stuck in your head.*
+for the melodies stuck in your head.
 
-A little songwriting studio in the browser. Hum a melody, watch it turn into notes, fix them in a piano roll, hear them on 16 instruments, add chords, bass and drums, hum a second part, write lyrics, and export a MIDI or WAV. No account, no backend, no AI. Everything stays in your browser (IndexedDB).
+a little songwriting studio in the browser. you hum a melody, it turns into notes, and then you can fix them, play them on 16 instruments, add chords, bass and drums, hum a second part, write lyrics and export it as MIDI or WAV. there's no account, no backend and no AI. everything stays in your browser.
 
-Daily build · 2026-11-19 · Vite + React + TypeScript + Tailwind v4 + Tone.js + pitchy + Dexie + @tonejs/midi
+built in a day as one of my daily builds (2026-11-19) with vite, react, typescript, tailwind, tone.js, pitchy, dexie and @tonejs/midi.
 
-## Run it
+## run it
 
 ```bash
 npm install
 npm run dev        # http://localhost:5190
-npm test           # transcription + theory tests (synthetic melodies)
-npm run build      # typecheck + production build into dist/
+npm test           # transcription and theory tests
+npm run build      # typecheck and build into dist/
 ```
 
-The microphone needs a secure context: `localhost` or `https`.
+the mic only works on localhost or https.
 
-## Deploy to Netlify
+## deploy to netlify
 
-`netlify.toml` already sets `npm run build` and the `dist` folder. Either:
+netlify.toml already has the build command and the dist folder, so you can either drag the dist folder onto netlify drop, connect the repo in netlify (set the base directory to `2026-11-19-hum`), or run `npx netlify deploy --prod --dir dist`. it only uses hash routes so you don't need any redirect rules.
 
-- drag the `dist/` folder onto app.netlify.com/drop, or
-- connect the repo in Netlify (base directory `2026-11-19-hum` if it lives in a monorepo), or
-- `npx netlify deploy --prod --dir dist`
+## what it does
 
-The app has no routes beyond `#/` hashes, so no redirect rules are needed.
+- **my songs** lets you make, open, rename, duplicate and delete songs. each card shows a little waveform, the date, the length and the instrument
+- **recording** is a cassette deck with record, stop, a timer, a live waveform and the mic status. you can play back your original hum, record again, or upload a voice memo if you don't want to use the mic. it stops on its own after 90 seconds
+- **hum to notes** uses pitchy to find the pitch every 11ms or so, ignores anything too quiet or unclear, smooths it out and splits it into notes. notes shorter than 80ms get dropped. if the audio is too quiet or noisy it tells you instead of making notes up
+- **melody editor** is a simple piano roll. drag notes up or down to change the pitch, sideways to move them, drag the right edge to make them longer, and double-click to add or delete. there's undo and redo, snapping, zoom, transpose, tempo, a tidy timing button and a reset back to what you hummed
+- **instruments** are grand piano, electric piano, music box, organ, acoustic guitar, electric guitar, violin, cello, harp and electric bass (real samples), plus synth lead, dreamy pad, pluck, ambient bells and synth bass (made with tone.js), and a drum kit for the drum track. samples load the first time you pick an instrument, and if they can't load you get a synth version that's labelled as one
+- **arrange** adds chords, bass and drums under your melody. there are 5 moods (dreamy pop, acoustic, lo-fi, r&b and cinematic) that each change the instruments, how the chords and bass are played, the drums, the reverb and the volumes. it guesses the key of your melody and ranks 8 chord progressions by how well they fit. every track has mute, solo and volume. the moods never change your melody
+- **add another hum** lets you record or upload a second part, pick its instrument, slide it into place and move it up or down an octave
+- **+ my voice** plays your original hum together with the instruments, as long as you're still at the tempo it was converted at
+- **lyrics** is a notebook with verse, pre-chorus, chorus, bridge and outro. you can add, rename, reorder and delete sections and it saves as you type
+- **saving** happens on its own about half a second after every change and when you leave the page. your recordings are kept exactly as you recorded them
+- **export** gives you the original recording in its real format, a MIDI file with every track, or a WAV of the whole arrangement
 
-## What's in it
+## how i tested it
 
-| Area | What works |
-|---|---|
-| **My Songs** | create, open, rename, duplicate (including recordings), delete with confirm; cards show a waveform, date, length and lead instrument |
-| **Recording** | cassette deck with record/stop, timer, live waveform, mic permission status, playback of the original, record again, **upload a voice memo** instead of using the mic. Friendly messages for blocked/missing/busy mics. Stops on its own after 90 s |
-| **Transcription** | pitchy (McLeod pitch method) on ~11 ms frames → loudness gate + clarity gate → median smoothing → note segmentation (gaps, sustained pitch changes) → notes shorter than 80 ms dropped. Shows a warning instead of inventing notes when the audio is quiet or noisy |
-| **Melody editor** | piano roll: drag for pitch/time, drag the right edge to resize, double-click to add or delete, arrow keys to nudge, undo/redo (⌘Z / ⇧⌘Z), snap (free, 1/16, 1/8, beat), zoom, playhead, transpose, tempo, "tidy timing" (quantize), reset to original |
-| **Instruments** | 16: Grand Piano, Electric Piano, Music Box, Organ, Acoustic Guitar, Electric Guitar, Violin, Cello, Harp, Electric Bass (sampled); Synth Lead, Dreamy Pad, Pluck, Ambient Bells, Synth Bass (Tone.js synths); Drum Kit (synthesized, drum track only). Samples load the first time you pick an instrument. If they can't load (offline), a synth stand-in plays and the card says so |
-| **Arrange** | lead, chords, bass and drums (plus the hum layer). 5 moods (Dreamy Pop, Acoustic, Lo-fi, R&B, Cinematic) each change instruments, chord style, bass style, drums, reverb and levels. Key detection (Krumhansl–Kessler), 8 progressions ranked by how well they fit your notes, mute/solo/volume per track. Moods never touch the melody |
-| **Add another hum** | record or upload a second melody, pick its instrument, slide it ±8 beats, shift octaves. It plays alongside the lead and shows as dashed notes in the editor |
-| **+ my voice** | play your original hum together with the instruments (only at the tempo it was transcribed at, so it stays in sync) |
-| **Lyrics** | notebook with Verse / Pre-Chorus / Chorus / Bridge / Outro, add/rename/reorder/delete, autosaved |
-| **Save** | autosaves to IndexedDB about half a second after each change, and when you leave the page. Recordings are stored as the original blobs, unchanged |
-| **Export** | original recording (its real format: webm/m4a/ogg/wav), multi-track MIDI (GM programs, drums on channel 10), WAV of the full arrangement rendered offline with `Tone.Offline` |
+- `npm test` runs 12 tests. the hum to notes part gets fake hums with harmonics, vibrato and noise, like separate notes, notes that slide into each other, low and high voices, and 44.1 and 48 khz audio. silence and plain noise have to come back with no notes and a warning. the theory tests check the key guessing, chord names, the fit scores, the backing parts and that every mood is actually different
+- in the browser i uploaded a fake hum through the real upload button and got back exactly C4 E4 G4 E4 D4 C4 at the right times. i also checked playback starting and stopping, changing the mood while it's playing, editing notes and undo, switching instruments, the second hum, reloading the page, duplicating, the phone layout and the blocked mic message
+- i rendered all 15 melody instruments and all 5 moods offline and they all made sound and came out different. the WAV file is valid and the MIDI opens back up with 5 tracks at the right tempo
 
-## How it was tested
+### still needs checking by hand
 
-- `npm test`: 12 tests. The transcriber is checked against synthetic hum-like signals with harmonics, vibrato and noise: detached and legato melodies, low and high voices, 44.1 and 48 kHz audio. Silence and pure noise must produce no notes and a warning. The theory tests cover key detection, chord spelling, fit scoring, accompaniment builders, and a check that every mood is different.
-- In the browser, a synthetic WAV went through the real upload path and came back as exactly C4 E4 G4 E4 D4 C4 at the right beats. Also checked: playback starts and stops, changing the mood while playing doesn't cause overlapping playback, drag/resize/add/delete/undo in the piano roll, instrument switching, the hum layer, reload persistence (notes, layer, instrument, lyrics), duplicate, mobile layout at 375 px, and the blocked-mic message.
-- Offline renders of all 15 melodic instruments all produced audio with distinct timbre statistics, and so did all 5 moods. The WAV header is valid. The MIDI file parses back into 5 tracks at the right tempo.
+1. recording with a real mic. press record, hum for a few seconds, stop, and the notes should show up
+2. how close it gets with real humming. a steady "doo" in a quiet room works best, and sliding or breathy singing will need some fixing in the editor
+3. safari and iphone, which record in a different format
+4. listening to it. i balanced the volumes by measuring them, not by ear
 
-### Still needs a manual check (needs real hardware)
+## what it can't do yet
 
-1. **Live mic recording**: open on `localhost`, press record, hum about 5 s, stop. Expect a live waveform while recording, then notes in the roll.
-2. **Real humming accuracy**: a steady "doo" in a quiet room should come out close to what you sang. Breathy or slidey singing will have errors you can fix in the editor.
-3. **Safari/iOS**: recording uses `audio/mp4` there. Check that upload and playback work.
-4. **Listening**: the levels and moods were balanced by numbers, not by ear.
+- it only hears one note at a time, so no chords and no pulling a voice out of a song
+- if you sing the same note again with no gap ("da da da") it can turn into one long note
+- it doesn't figure out your tempo, it just puts your hum on a 90 bpm grid. at 90 bpm it plays back with your exact timing, and tidy timing snaps it to the beat
+- the real instrument samples come from gleitz.github.io/midi-js-soundfonts (FluidR3 GM, CC-BY 3.0, credited in the app). without internet you get the synth versions
+- one extra hum per song
+- undo covers note edits, transpose and the second hum, but not tempo, titles, lyrics or the mixer
+- songs live in your browser, so clearing your site data deletes them. export anything you want to keep
 
-## Known limitations
+## ideas for later
 
-- Monophonic only: one voice, one note at a time. No chords, no separating a voice from music.
-- Note boundaries come from pitch changes and silence. Repeating the *same* note with no gap between them ("da-da-da") can merge into one long note.
-- Tempo isn't detected. The hum is mapped onto a 90 bpm grid, so playback at 90 bpm matches your timing. Use "tidy timing" if you want to quantize.
-- Sampled instruments stream from `gleitz.github.io/midi-js-soundfonts` (FluidR3 GM, **CC-BY 3.0**, credited in the app footer). With no network, synth stand-ins play.
-- One extra hummed layer per song.
-- Undo covers note edits, transpose and layer edits. It does not cover tempo, titles, lyrics or mixer moves.
-- Storage is per-browser. Clearing site data deletes your songs, so export what you want to keep.
+- figure out the tempo from your hum so the grid follows you
+- split repeated notes by listening for each new "da"
+- keep the samples offline with a service worker
+- a count-in before recording the second hum
+- song sections so lyrics line up with bars
+- loudness and pitch bends from the original hum
 
-## Ideas for later
-
-- Tempo/beat detection from note onsets, so the grid follows the hummer
-- Onset detection from energy so repeated same-pitch notes split
-- Bundle a small sample set (or cache it with a service worker) for full offline use
-- A "sing-along" metronome count-in for recording the layer
-- Per-section song structure (verse/chorus loops) that ties lyrics to bars
-- Velocity from loudness, pitch bends from the original hum
-
-## Files
+## files
 
 ```
-src/audio/transcribe.ts   hum → notes (pure, tested)
-src/audio/instruments.ts  16 instruments, on-demand sample loading, drum kit
-src/audio/player.ts       single playback engine, previews, offline render
-src/audio/recorder.ts     MediaRecorder + analyser, error mapping
-src/lib/theory.ts         key detection, progressions, chord/bass/drum parts
-src/lib/moods.ts          5 arrangement moods
-src/lib/db.ts             Dexie (songs + recordings)
-src/lib/exporters.ts      MIDI, WAV, downloads
-src/state/useSong.ts      load, autosave, undo/redo
-src/components/*          Library, Studio, RecorderDeck, PianoRoll, InstrumentPicker, ArrangePanel, LayerPanel, LyricsPanel
-tests/*                   vitest
+src/audio/transcribe.ts   hum to notes
+src/audio/instruments.ts  the 16 instruments and the drum kit
+src/audio/player.ts       playback, previews and the WAV render
+src/audio/recorder.ts     the mic recording
+src/lib/theory.ts         key, chords, bass and drums
+src/lib/moods.ts          the 5 moods
+src/lib/db.ts             saving to the browser
+src/lib/exporters.ts      MIDI and WAV files
+src/state/useSong.ts      loading, autosave and undo
+src/components/           all the screens and panels
+tests/                    the tests
 ```

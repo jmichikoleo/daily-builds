@@ -1,5 +1,6 @@
-// src/components/RecorderDeck.tsx — the cassette recorder: record / stop / timer / live waveform /
-// mic status / original playback / record again / upload a voice memo.
+// src/components/RecorderDeck.tsx
+// the cassette recorder. record, stop, timer, live waveform, mic status,
+// playing back the original, record again and uploading a voice memo.
 import { useEffect, useRef, useState } from "react";
 import { Circle, Mic, MicOff, Pause, Play, RotateCcw, Square, Upload } from "lucide-react";
 import { HumRecorder, micErrorMessage, micPermission, type MicError } from "../audio/recorder";
@@ -123,7 +124,7 @@ export default function RecorderDeck({ side, label, recording, peaks, durationSe
   };
 
   const recordingNow = state === "recording";
-  const status = recordingNow ? "catching your little melody…" : busy ? "listening for notes…" : recording ? "you made that!" : "every song starts somewhere.";
+  const status = recordingNow ? "catching your little melody..." : busy ? "finding the notes..." : recording ? "you made that!" : "every song starts somewhere.";
 
   return (
     <div className={`panel relative overflow-hidden ${compact ? "p-4" : "p-5 sm:p-6"}`} style={{ background: "linear-gradient(160deg,#fff 0%,#fdf1f5 100%)" }}>
@@ -177,11 +178,11 @@ export default function RecorderDeck({ side, label, recording, peaks, durationSe
         <p className="font-hand text-xl text-rose-deep" aria-live="polite">{status}</p>
         <span className="inline-flex items-center gap-1 text-xs text-ink-soft">
           {perm === "denied" ? <MicOff size={12} /> : <Mic size={12} />}
-          mic: {perm === "granted" ? "ready" : perm === "denied" ? "blocked" : perm === "prompt" ? "will ask" : "—"}
+          {perm === "granted" ? "mic ready" : perm === "denied" ? "mic blocked" : perm === "prompt" ? "mic will ask first" : "mic"}
         </span>
       </div>
       {error && <p className="mt-2 rounded-xl bg-butter px-3 py-2 text-sm" role="alert">{micErrorMessage[error]}</p>}
-      {recordingNow && <p className="mt-1 text-xs text-ink-soft">tip: a steady “doo” or “mmm” works best. stops itself after {MAX_SECONDS}s.</p>}
+      {recordingNow && <p className="mt-1 text-xs text-ink-soft">a steady "doo" or "mmm" works best. it stops on its own after {MAX_SECONDS}s</p>}
     </div>
   );
 }

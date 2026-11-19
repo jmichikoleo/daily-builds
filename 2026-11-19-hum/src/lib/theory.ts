@@ -1,4 +1,5 @@
-// src/lib/theory.ts — small, rule-based music theory: key detection, chords, bass, drums.
+// src/lib/theory.ts
+// small, rule-based music theory, key detection, chords, bass, drums.
 import type { BassStyle, ChordStyle, DrumPatternId, Note } from "./types";
 
 export const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -7,7 +8,7 @@ export const isBlackKey = (m: number) => [1, 3, 6, 8, 10].includes(((m % 12) + 1
 export const keyName = (k: { tonic: number; mode: "major" | "minor" }) =>
   `${NOTE_NAMES[k.tonic]} ${k.mode}`;
 
-// Krumhansl–Kessler key profiles.
+// Krumhansl-Kessler key profiles.
 const MAJOR = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
 const MINOR = [6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
 

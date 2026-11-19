@@ -1,4 +1,5 @@
-// src/audio/player.ts — one shared playback engine (prevents overlapping playback),
+// src/audio/player.ts
+// one shared playback engine (prevents overlapping playback),
 // instrument previews, and offline WAV rendering. Live and offline use the same graph code.
 import * as Tone from "tone";
 import { createVoice, loadSamples, getInstrument, type Voice } from "./instruments";

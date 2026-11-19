@@ -1,4 +1,5 @@
-// src/components/InstrumentPicker.tsx — instrument library: browse by category, preview, select.
+// src/components/InstrumentPicker.tsx
+// instrument library, browse by category, preview, select.
 // Sidebar on desktop, horizontal carousel on mobile.
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Check, Loader2, Volume2 } from "lucide-react";
@@ -44,7 +45,7 @@ export default function InstrumentPicker({ selected, onSelect, volume, onVolume 
                   className="block w-full text-left disabled:cursor-not-allowed"
                   onClick={() => { if (!inst.drumsOnly) { onSelect(inst.id); previewInstrument(inst.id); } else previewInstrument(inst.id); }}
                   aria-pressed={isSel}
-                  title={inst.drumsOnly ? "the drum kit plays the drum track in “arrange”" : `use ${inst.name} for the melody`}
+                  title={inst.drumsOnly ? "the drum kit only plays the drum track in arrange" : `use ${inst.name} for the melody`}
                 >
                   <span className="grid h-10 w-10 place-items-center rounded-xl" style={{ background: inst.color }}>
                     <Icon size={20} strokeWidth={1.8} />
@@ -52,7 +53,7 @@ export default function InstrumentPicker({ selected, onSelect, volume, onVolume 
                   <span className="mt-2 block text-sm font-extrabold leading-tight">{inst.name}</span>
                   <span className="block text-[11px] leading-snug text-ink-soft">{inst.blurb}</span>
                   <span className="mt-1 block text-[10px] font-bold uppercase tracking-wider text-rose-deep/80">
-                    {inst.drumsOnly ? "drum track only" : inst.kind === "sampled" ? (state === "fallback" ? "synth stand-in" : "sampled") : "synthesized"}
+                    {inst.drumsOnly ? "drum track only" : inst.kind === "sampled" ? (state === "fallback" ? "synth version" : "sampled") : "synthesized"}
                   </span>
                 </button>
                 <button
@@ -89,8 +90,8 @@ function SampleNote() {
   return (
     <p className="mt-2 text-[11px] text-ink-soft">
       {offline
-        ? "you're offline — sampled instruments will use a synth stand-in until you reconnect."
-        : "sampled instruments load the first time you pick them."}
+        ? "you're offline, so the sampled instruments will use a synth version until you're back online"
+        : "sampled instruments take a sec to load the first time you pick them"}
     </p>
   );
 }

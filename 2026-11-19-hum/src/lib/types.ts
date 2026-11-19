@@ -1,4 +1,5 @@
-// src/lib/types.ts — shared data shapes for songs, notes and arrangements.
+// src/lib/types.ts
+// shared data shapes for songs, notes and arrangements.
 
 export interface Note {
   id: string;

@@ -1,4 +1,5 @@
-// src/components/ui.tsx — small shared visual pieces: waveform, cassette reel, instrument icons, toasts.
+// src/components/ui.tsx
+// small shared visual pieces, waveform, cassette reel, instrument icons, toasts.
 import { useEffect, useState } from "react";
 import {
   AudioLines, Bell, Church, Cloud, Droplet, Drum, Feather, Gift, Guitar, KeyboardMusic, Music3, Music4, Piano, Radio, Waves, Zap,

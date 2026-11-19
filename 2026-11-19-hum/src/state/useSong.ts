@@ -1,4 +1,5 @@
-// src/state/useSong.ts — loads a song, autosaves it, and keeps undo/redo history for note edits.
+// src/state/useSong.ts
+// loads a song, autosaves it, and keeps undo/redo history for note edits.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSong, saveSong } from "../lib/db";
 import { defaultArrangement } from "../lib/moods";

@@ -1,4 +1,5 @@
-// src/lib/moods.ts — arrangement mood presets and the default arrangement.
+// src/lib/moods.ts
+// arrangement mood presets and the default arrangement.
 import type { Arrangement, MoodId } from "./types";
 
 type MoodPatch = Pick<Arrangement, "chordInstrument" | "chordStyle" | "bassInstrument" | "bassStyle" | "drumPattern" | "reverb"> & {

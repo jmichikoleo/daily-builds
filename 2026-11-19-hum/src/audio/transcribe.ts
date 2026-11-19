@@ -1,4 +1,5 @@
-// src/audio/transcribe.ts — turns a mono hum recording into notes.
+// src/audio/transcribe.ts
+// turns a mono hum recording into notes.
 // Pure function (no Web Audio), so it can be tested with synthetic melodies.
 import { PitchDetector } from "pitchy";
 import type { Note } from "../lib/types";
@@ -166,10 +167,10 @@ export function transcribe(input: Float32Array, sampleRate: number, bpm: number)
   }
 
   let warning: string | null = null;
-  if (peakRms < 0.01) warning = "that was very quiet — try humming a little closer to the mic.";
-  else if (notes.length === 0) warning = "we couldn't hear a clear melody. try a steady 'mmm' or 'doo' in a quiet room.";
+  if (peakRms < 0.01) warning = "that was really quiet, try humming a bit closer to the mic";
+  else if (notes.length === 0) warning = "couldn't hear a clear melody. try a steady \"mmm\" or \"doo\" somewhere quiet";
   else if (voicedRatio < 0.35 || meanClarity < 0.9)
-    warning = "it was a bit noisy, so some notes may be off. a quieter room or a clearer 'doo' helps.";
+    warning = "it was a bit noisy so some notes might be off. a quieter room or a clearer \"doo\" helps";
 
   return {
     notes,

@@ -1,4 +1,5 @@
-// tests/theory.test.ts — key detection, chord fitting and accompaniment builders.
+// tests/theory.test.ts
+// key detection, chord fitting and accompaniment builders.
 import { describe, expect, it } from "vitest";
 import { buildBassPart, buildChordPart, buildDrumPart, chordsFor, detectKey, PROGRESSIONS, scoreProgression } from "../src/lib/theory";
 import { applyMood, defaultArrangement, MOODS } from "../src/lib/moods";
@@ -12,7 +13,7 @@ describe("theory", () => {
     expect(detectKey(mk([69, 72, 76, 74, 72, 71, 69, 64, 69, 72, 69]))).toEqual({ tonic: 9, mode: "minor" });
   });
 
-  it("builds I–V–vi–IV in G", () => {
+  it("builds I V vi IV in G", () => {
     const pop = PROGRESSIONS.find((p) => p.id === "pop")!;
     expect(chordsFor(pop, { tonic: 7, mode: "major" }).map((c) => c.name)).toEqual(["G", "D", "Em", "C"]);
   });

@@ -1,4 +1,5 @@
-// src/audio/instruments.ts — the instrument library: 11 sampled instruments (FluidR3 GM, CC-BY 3.0)
+// src/audio/instruments.ts
+// the instrument library, 11 sampled instruments (FluidR3 GM, CC-BY 3.0)
 // loaded on demand, 5 synthesized ones built with Tone.js, plus a synthesized drum kit.
 import * as Tone from "tone";
 

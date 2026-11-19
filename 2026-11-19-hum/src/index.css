@@ -1,4 +1,5 @@
-/* src/index.css — Tailwind v4 theme + a few hand-made pieces (cassette reels, keys, grain). */
+/* src/index.css
+   Tailwind v4 theme and a few hand-made pieces (cassette reels, keys, grain). */
 @import "tailwindcss";
 
 @theme {

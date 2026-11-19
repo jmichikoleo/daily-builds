@@ -1,4 +1,5 @@
-// src/components/LyricsPanel.tsx — the lyrics notebook: sections you can add, rename, reorder and delete.
+// src/components/LyricsPanel.tsx
+// the lyrics notebook, sections you can add, rename, reorder and delete.
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type { LyricSection } from "../lib/types";
 import { SectionTitle } from "./ui";
@@ -25,9 +26,9 @@ export default function LyricsPanel({ sections, onChange, saveState }: Props) {
   return (
     <div className="panel p-4 sm:p-5" style={{ background: "linear-gradient(180deg,#fffdf6 0%,#fff 100%)" }}>
       <SectionTitle kicker="the notebook" title="the words behind the music.">
-        <span className="text-xs text-ink-soft">{saveState === "saving" ? "saving…" : saveState === "error" ? "couldn't save" : "autosaved ✓"}</span>
+        <span className="text-xs text-ink-soft">{saveState === "saving" ? "saving..." : saveState === "error" ? "couldn't save" : "saved"}</span>
       </SectionTitle>
-      {sections.length === 0 && <p className="mb-3 text-sm text-ink-soft">a blank page. add a section and write whatever the melody makes you feel.</p>}
+      {sections.length === 0 && <p className="mb-3 text-sm text-ink-soft">nothing here yet. add a section and write whatever the melody makes you feel</p>}
       <div className="space-y-4">
         {sections.map((s, i) => (
           <section key={s.id} className="group rounded-2xl border border-line bg-white p-3">
@@ -41,12 +42,12 @@ export default function LyricsPanel({ sections, onChange, saveState }: Props) {
               />
               <button className="rounded-lg p-1.5 text-ink-soft hover:bg-pearl disabled:opacity-30" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`move ${s.title} up`}><ArrowUp size={14} /></button>
               <button className="rounded-lg p-1.5 text-ink-soft hover:bg-pearl disabled:opacity-30" onClick={() => move(i, 1)} disabled={i === sections.length - 1} aria-label={`move ${s.title} down`}><ArrowDown size={14} /></button>
-              <button className="rounded-lg p-1.5 text-ink-soft hover:bg-blush" onClick={() => { if (!s.text.trim() || confirm(`delete “${s.title}”?`)) onChange(sections.filter((x) => x.id !== s.id)); }} aria-label={`delete ${s.title}`}><Trash2 size={14} /></button>
+              <button className="rounded-lg p-1.5 text-ink-soft hover:bg-blush" onClick={() => { if (!s.text.trim() || confirm(`delete "${s.title}"?`)) onChange(sections.filter((x) => x.id !== s.id)); }} aria-label={`delete ${s.title}`}><Trash2 size={14} /></button>
             </div>
             <textarea
               value={s.text}
               onChange={(e) => patch(s.id, { text: e.target.value })}
-              placeholder={i === 0 ? "start with one honest line…" : "…"}
+              placeholder={i === 0 ? "start with one honest line..." : "..."}
               rows={Math.max(3, s.text.split("\n").length + 1)}
               className="notebook w-full resize-none rounded-md bg-transparent px-1 font-hand text-2xl leading-8 outline-none placeholder:text-ink/25"
               aria-label={`${s.title} lyrics`}
