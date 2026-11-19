@@ -3,7 +3,7 @@
 // the schema is the same as v1. new song fields are filled in when a song is read (see migrate.ts).
 import Dexie, { type Table } from "dexie";
 import type { CoverConfig, Song, StoredRecording } from "./types";
-import { normalizeSong } from "./migrate";
+import { normalizeSong, rekeySong } from "./migrate";
 import { referencedKeys } from "./versions";
 
 class HumDB extends Dexie {
@@ -39,11 +39,6 @@ export async function deleteSong(id: string) {
   });
 }
 
-/** Re-key a song (ids inside the song and blob keys) so it can live next to the original. */
-export function rekeySong(song: Song, newId: string): Song {
-  const json = JSON.stringify(song).split(`${song.id}:`).join(`${newId}:`);
-  return normalizeSong({ ...JSON.parse(json), id: newId });
-}
 
 export async function duplicateSong(id: string): Promise<Song | undefined> {
   const song = await getSong(id);
@@ -76,4 +71,19 @@ export async function withCover(song: Song, cover: CoverConfig, newImage: Blob |
   const key = newRecordingKey(song.id, "cover");
   await putBlob(key, newImage);
   return { ...song, cover: { ...cover, imageKey: key } };
+}
+
+/**
+ * Put a checked backup into the database. Refuses to overwrite: if the id is already taken the
+ * caller has to pass a copy (see asCopy in backup.ts). Song and blobs go in one transaction.
+ */
+export async function importBackup(p: { song: Song; files: { key: string; blob: Blob }[] }): Promise<Song> {
+  await db.transaction("rw", db.songs, db.recordings, async () => {
+    if (await db.songs.get(p.song.id)) throw new Error("a song with this id is already here");
+    const clash = await db.recordings.where("key").anyOf(p.files.map((f) => f.key)).count();
+    if (clash) throw new Error("these recordings are already here");
+    await db.recordings.bulkAdd(p.files.map((f) => ({ key: f.key, blob: f.blob, mime: f.blob.type })));
+    await db.songs.add({ ...p.song, updatedAt: Date.now() });
+  });
+  return p.song;
 }

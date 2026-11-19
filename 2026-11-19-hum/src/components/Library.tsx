@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Copy, Pencil, Plus, Trash2, Check, X, Music2, Palette } from "lucide-react";
 import { cleanupBlobs, deleteSong, duplicateSong, listSongs, newSong, saveSong, withCover } from "../lib/db";
 import CoverEditor, { CoverThumb } from "./CoverEditor";
+import { RestoreButton } from "./RestoreDialog";
 import { getInstrument } from "../audio/instruments";
 import type { Song } from "../lib/types";
 import { INSTRUMENT_ICON, PeaksWave, Reel, Toaster, fmtTime, toast } from "./ui";
@@ -52,9 +53,10 @@ export default function Library() {
             <p className="font-hand text-xl leading-none text-rose-deep">everything you've hummed</p>
             <h2 className="font-display text-2xl font-semibold">my songs</h2>
           </div>
-          {!!songs?.length && (
-            <button onClick={create} className="chip"><Plus size={14} /> new song</button>
-          )}
+          <span className="flex flex-wrap justify-end gap-1.5">
+            <RestoreButton onRestored={(id) => go(`/song/${id}`)} />
+            {!!songs?.length && <button onClick={create} className="chip"><Plus size={14} /> new song</button>}
+          </span>
         </div>
 
         {songs === null ? (

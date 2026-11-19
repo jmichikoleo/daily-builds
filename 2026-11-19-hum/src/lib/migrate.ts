@@ -161,3 +161,9 @@ export function pickVersionData(s: VersionData): VersionData {
   for (const k of VERSION_FIELDS) out[k] = structuredClone(s[k]);
   return out as unknown as VersionData;
 }
+
+/** Re-key a song (version ids and blob keys inside it) so it can live next to the original. */
+export function rekeySong(song: Song, newId: string): Song {
+  const json = JSON.stringify(song).split(`${song.id}:`).join(`${newId}:`);
+  return normalizeSong({ ...JSON.parse(json), id: newId });
+}

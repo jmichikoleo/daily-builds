@@ -4,14 +4,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, Download, FileAudio, FileMusic, Loader2, Minus, Mic2, Play, Plus, Redo2, Repeat, RotateCcw, Square, Trash2, Undo2,
-  Wand2, ZoomIn, ZoomOut, Heart, ChevronDown, Palette,
+  Wand2, ZoomIn, ZoomOut, Heart, ChevronDown, Palette, Archive,
 } from "lucide-react";
 import { useSong } from "../state/useSong";
 import { player, previewNote, renderSong } from "../audio/player";
 import { decodeArrayBuffer, getInstrument } from "../audio/instruments";
 import { extensionFor, toMono } from "../audio/recorder";
 import { quantize, transcribe } from "../audio/transcribe";
-import { cleanupBlobs, getBlob, newRecordingKey, putBlob, withCover } from "../lib/db";
+import { cleanupBlobs, getBlob, getSongBlobs, newRecordingKey, putBlob, withCover } from "../lib/db";
+import { buildBackup, readBackup } from "../lib/backup";
 import CoverEditor, { CoverThumb } from "./CoverEditor";
 import { regridNotes } from "../lib/tempo";
 import { deleteVersion, duplicateVersion, renameVersion, saveAsNewVersion, switchVersion } from "../lib/versions";
@@ -217,13 +218,24 @@ export default function Studio({ songId }: { songId: string }) {
   const hasNotes = song.notes.length > 0;
   const name = safeName(song.title);
 
-  const doExport = async (kind: "original" | "midi" | "wav") => {
+  const doExport = async (kind: "original" | "midi" | "wav" | "backup") => {
     setExportOpen(false);
     try {
       if (kind === "original" && leadBlob) {
         download(leadBlob, `${name}-original-hum.${extensionFor(leadBlob.type || song.recordingMime || "")}`);
       } else if (kind === "midi") {
         download(new Blob([songToMidi(song) as BlobPart], { type: "audio/midi" }), `${name}.mid`);
+      } else if (kind === "backup") {
+        setExporting("backup");
+        await saveNow();
+        const s = get()!;
+        const zip = await buildBackup(s, await getSongBlobs(s.id));
+        // read it straight back so we only hand over a backup that actually restores
+        const check = await readBackup(zip);
+        if (check.song.notes.length !== s.notes.length || check.files.length === 0 && s.hasRecording) throw new Error("backup check failed");
+        download(zip, `${name}.hum`);
+        toast(`backup checked and saved, ${check.files.length} files inside ♡`);
+        return;
       } else if (kind === "wav") {
         player.stop();
         setExporting("wav");
@@ -312,12 +324,13 @@ export default function Studio({ songId }: { songId: string }) {
                 <ExportItem icon={<Mic2 size={16} />} title="original recording" sub={leadBlob ? `your untouched hum (.${extensionFor(leadBlob.type || "")})` : "record something first"} disabled={!leadBlob} onClick={() => doExport("original")} />
                 <ExportItem icon={<FileMusic size={16} />} title="MIDI" sub="all the tracks, opens in garageband or any DAW" disabled={!hasNotes} onClick={() => doExport("midi")} />
                 <ExportItem icon={<FileAudio size={16} />} title="WAV" sub="the whole instrumental as one audio file" disabled={!hasNotes} onClick={() => doExport("wav")} />
+                <ExportItem icon={<Archive size={16} />} title="project backup" sub="everything incl. recordings, to move it or keep it safe (.hum)" onClick={() => doExport("backup")} />
               </div>
             )}
           </div>
         </div>
       </header>
-      {exporting && <p className="mt-2 text-right text-xs text-ink-soft">making your wav... the sampled instruments might take a sec</p>}
+      {exporting === "wav" && <p className="mt-2 text-right text-xs text-ink-soft">making your wav... the sampled instruments might take a sec</p>}
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
         <div className="min-w-0 space-y-5 lg:col-span-8">
