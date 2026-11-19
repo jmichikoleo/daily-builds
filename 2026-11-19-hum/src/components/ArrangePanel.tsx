@@ -6,7 +6,7 @@ import { Headphones, VolumeX, Wand2 } from "lucide-react";
 import { MELODIC, getInstrument } from "../audio/instruments";
 import { player } from "../audio/player";
 import { MOODS, applyMood } from "../lib/moods";
-import { DRUM_PATTERNS, NOTE_NAMES, PROGRESSIONS, chordsFor, detectKey, keyName, scoreProgression } from "../lib/theory";
+import { DRUM_PRESETS, NOTE_NAMES, PROGRESSIONS, chordsFor, detectKey, keyName, presetGrid, scoreProgression } from "../lib/theory";
 import type { Arrangement, BassStyle, ChordStyle, Song, TrackMix } from "../lib/types";
 import { SectionTitle } from "./ui";
 
@@ -116,13 +116,14 @@ export default function ArrangePanel({ song, onChange }: Props) {
             </select>
           </Row>
           <Row label="drums">
-            <select className="flex-1 rounded-xl border border-line bg-white px-2 py-2 text-sm" value={a.drumPattern} onChange={(e) => set({ drumPattern: e.target.value as Arrangement["drumPattern"] })} aria-label="drum pattern">
-              {DRUM_PATTERNS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            <select className="flex-1 rounded-xl border border-line bg-white px-2 py-2 text-sm" value={a.drums.preset ?? ""} onChange={(e) => { if (e.target.value) set({ drums: presetGrid(e.target.value) }); }} aria-label="drum pattern">
+              {!a.drums.preset && <option value="">your own beat</option>}
+              {DRUM_PRESETS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </Row>
           <label className="flex items-center gap-3 text-sm font-bold">
             reverb
-            <input type="range" min={0} max={1} step={0.01} value={a.reverb} onChange={(e) => set({ reverb: +e.target.value })} className="flex-1" />
+            <input type="range" min={0} max={1} step={0.01} value={a.effects.reverb} onChange={(e) => set({ effects: { ...a.effects, reverb: +e.target.value } })} className="flex-1" />
           </label>
         </div>
       </div>
@@ -133,7 +134,7 @@ export default function ArrangePanel({ song, onChange }: Props) {
         {song.layer && <MixRow name="hum layer" sub={getInstrument(song.layer.instrument).name} mix={a.tracks.layer} onChange={(m, live) => onChange({ ...a, tracks: { ...a.tracks, layer: m } }, { live })} track="layer" />}
         <MixRow name="chords" sub={getInstrument(a.chordInstrument).name} mix={a.tracks.chords} disabled={!a.enabled} onChange={(m, live) => onChange({ ...a, tracks: { ...a.tracks, chords: m } }, { live })} track="chords" />
         <MixRow name="bass" sub={getInstrument(a.bassInstrument).name} mix={a.tracks.bass} disabled={!a.enabled} onChange={(m, live) => onChange({ ...a, tracks: { ...a.tracks, bass: m } }, { live })} track="bass" />
-        <MixRow name="drums" sub={DRUM_PATTERNS.find((d) => d.id === a.drumPattern)?.name ?? ""} mix={a.tracks.drums} disabled={!a.enabled} onChange={(m, live) => onChange({ ...a, tracks: { ...a.tracks, drums: m } }, { live })} track="drums" />
+        <MixRow name="drums" sub={DRUM_PRESETS.find((d) => d.id === a.drums.preset)?.name ?? "your own beat"} mix={a.tracks.drums} disabled={!a.enabled} onChange={(m, live) => onChange({ ...a, tracks: { ...a.tracks, drums: m } }, { live })} track="drums" />
       </div>
     </div>
   );

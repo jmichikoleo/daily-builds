@@ -36,12 +36,15 @@ export default function RecorderDeck({ side, label, recording, peaks, durationSe
 
   // object URL for the stored original recording
   useEffect(() => {
-    audioRef.current?.pause();
+    const old = audioRef.current;
+    if (old) { old.onpause = null; old.onended = null; old.pause(); old.removeAttribute("src"); old.load(); }
     setPlaying(false);
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = recording ? URL.createObjectURL(recording) : null;
     if (urlRef.current) {
-      const a = new Audio(urlRef.current);
+      const a = new Audio();
+      a.preload = "none";
+      a.src = urlRef.current;
       a.onended = () => setPlaying(false);
       a.onpause = () => setPlaying(false);
       audioRef.current = a;

@@ -1,8 +1,10 @@
 // src/lib/db.ts
-// IndexedDB storage (Dexie), song projects and their raw recordings.
+// IndexedDB storage (Dexie). songs + every audio/image blob, keyed by `${songId}:<name>`.
+// the schema is the same as v1. new song fields are filled in when a song is read (see migrate.ts).
 import Dexie, { type Table } from "dexie";
 import type { Song, StoredRecording } from "./types";
-import { defaultArrangement } from "./moods";
+import { normalizeSong } from "./migrate";
+import { referencedKeys } from "./versions";
 
 class HumDB extends Dexie {
   songs!: Table<Song, string>;
@@ -20,53 +22,50 @@ export const DEFAULT_LYRICS = () =>
 
 export function newSong(): Song {
   const now = Date.now();
-  return {
-    id: crypto.randomUUID(),
-    title: "untitled hum",
-    createdAt: now,
-    updatedAt: now,
-    durationSec: 0,
-    peaks: [],
-    bpm: 90,
-    transcribedBpm: 90,
-    notes: [],
-    originalNotes: [],
-    leadInstrument: "piano",
-    hasRecording: false,
-    recordingMime: null,
-    transcriptionWarning: null,
-    arrangement: defaultArrangement(),
-    layer: null,
-    lyrics: DEFAULT_LYRICS(),
-  };
+  return normalizeSong({ id: crypto.randomUUID(), title: "untitled hum", createdAt: now, updatedAt: now, lyrics: DEFAULT_LYRICS() });
 }
 
-export const listSongs = () => db.songs.orderBy("updatedAt").reverse().toArray();
-export const getSong = (id: string) => db.songs.get(id);
+export const listSongs = async () => (await db.songs.orderBy("updatedAt").reverse().toArray()).map((s) => normalizeSong(s));
+export const getSong = async (id: string) => { const s = await db.songs.get(id); return s ? normalizeSong(s) : undefined; };
+export const songExists = async (id: string) => (await db.songs.where("id").equals(id).count()) > 0;
 export const saveSong = (song: Song) => db.songs.put({ ...song, updatedAt: Date.now() });
+
+const songKeys = (songId: string) => db.recordings.where("key").startsWith(`${songId}:`).primaryKeys();
 
 export async function deleteSong(id: string) {
   await db.transaction("rw", db.songs, db.recordings, async () => {
     await db.songs.delete(id);
-    await db.recordings.bulkDelete([`${id}:lead`, `${id}:layer`]);
+    await db.recordings.bulkDelete(await songKeys(id));
   });
 }
 
+/** Re-key a song (ids inside the song and blob keys) so it can live next to the original. */
+export function rekeySong(song: Song, newId: string): Song {
+  const json = JSON.stringify(song).split(`${song.id}:`).join(`${newId}:`);
+  return normalizeSong({ ...JSON.parse(json), id: newId });
+}
+
 export async function duplicateSong(id: string): Promise<Song | undefined> {
-  const song = await db.songs.get(id);
+  const song = await getSong(id);
   if (!song) return;
-  const copy: Song = { ...structuredClone(song), id: crypto.randomUUID(), title: `${song.title} (copy)`, createdAt: Date.now() };
+  const copy = { ...rekeySong(song, crypto.randomUUID()), title: `${song.title} (copy)`, createdAt: Date.now() };
   await db.transaction("rw", db.songs, db.recordings, async () => {
     await saveSong(copy);
-    for (const part of ["lead", "layer"]) {
-      const rec = await db.recordings.get(`${id}:${part}`);
-      if (rec) await db.recordings.put({ ...rec, key: `${copy.id}:${part}` });
-    }
+    const recs = await db.recordings.where("key").startsWith(`${id}:`).toArray();
+    await db.recordings.bulkPut(recs.map((r) => ({ ...r, key: `${copy.id}:${r.key.slice(id.length + 1)}` })));
   });
   return copy;
 }
 
-export const putRecording = (songId: string, part: "lead" | "layer", blob: Blob) =>
-  db.recordings.put({ key: `${songId}:${part}`, blob, mime: blob.type });
-export const getRecording = (songId: string, part: "lead" | "layer") => db.recordings.get(`${songId}:${part}`);
-export const deleteRecording = (songId: string, part: "lead" | "layer") => db.recordings.delete(`${songId}:${part}`);
+export const newRecordingKey = (songId: string, kind: "rec" | "take" | "cover") => `${songId}:${kind}:${crypto.randomUUID()}`;
+export const putBlob = (key: string, blob: Blob) => db.recordings.put({ key, blob, mime: blob.type });
+export const getBlob = async (key: string | null | undefined) => (key ? (await db.recordings.get(key))?.blob ?? null : null);
+export const getSongBlobs = (songId: string) => db.recordings.where("key").startsWith(`${songId}:`).toArray();
+
+/** Delete blobs under this song that nothing references any more. Returns how many went. */
+export async function cleanupBlobs(song: Song): Promise<number> {
+  const keep = referencedKeys(song);
+  const stale = (await songKeys(song.id)).filter((k) => !keep.has(String(k)));
+  if (stale.length) await db.recordings.bulkDelete(stale);
+  return stale.length;
+}

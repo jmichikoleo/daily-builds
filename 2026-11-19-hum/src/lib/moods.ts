@@ -1,25 +1,35 @@
 // src/lib/moods.ts
-// arrangement mood presets and the default arrangement.
-import type { Arrangement, MoodId } from "./types";
+// arrangement mood presets, the default arrangement and default effects.
+import type { Arrangement, BassStyle, ChordStyle, Effects, MoodId } from "./types";
+import { presetGrid } from "./theory";
 
-type MoodPatch = Pick<Arrangement, "chordInstrument" | "chordStyle" | "bassInstrument" | "bassStyle" | "drumPattern" | "reverb"> & {
+interface MoodPatch {
+  chordInstrument: string;
+  chordStyle: ChordStyle;
+  bassInstrument: string;
+  bassStyle: BassStyle;
+  drumPreset: string;
+  reverb: number;
+  delay: number;
   volumes: { chords: number; bass: number; drums: number };
-};
+}
 
 export const MOODS: { id: MoodId; name: string; blurb: string; color: string; patch: MoodPatch }[] = [
   { id: "dreamy", name: "Dreamy Pop", blurb: "pads, soft kick, lots of space", color: "#DCD0F3",
-    patch: { chordInstrument: "pad", chordStyle: "pad", bassInstrument: "synthbass", bassStyle: "roots", drumPattern: "softPop", reverb: 0.55, volumes: { chords: 0.6, bass: 0.55, drums: 0.45 } } },
+    patch: { chordInstrument: "pad", chordStyle: "pad", bassInstrument: "synthbass", bassStyle: "roots", drumPreset: "softPop", reverb: 0.55, delay: 0.25, volumes: { chords: 0.6, bass: 0.55, drums: 0.45 } } },
   { id: "acoustic", name: "Acoustic", blurb: "strummed guitar, finger bass, shaker", color: "#FFF0BE",
-    patch: { chordInstrument: "aguitar", chordStyle: "strum", bassInstrument: "ebass", bassStyle: "rootFifth", drumPattern: "acoustic", reverb: 0.2, volumes: { chords: 0.7, bass: 0.6, drums: 0.5 } } },
+    patch: { chordInstrument: "aguitar", chordStyle: "strum", bassInstrument: "ebass", bassStyle: "rootFifth", drumPreset: "acoustic", reverb: 0.2, delay: 0, volumes: { chords: 0.7, bass: 0.6, drums: 0.5 } } },
   { id: "lofi", name: "Lo-fi", blurb: "dusty keys, lazy swung beat", color: "#D4EDE4",
-    patch: { chordInstrument: "epiano", chordStyle: "block", bassInstrument: "ebass", bassStyle: "roots", drumPattern: "lofi", reverb: 0.3, volumes: { chords: 0.55, bass: 0.6, drums: 0.6 } } },
+    patch: { chordInstrument: "epiano", chordStyle: "block", bassInstrument: "ebass", bassStyle: "roots", drumPreset: "lofi", reverb: 0.3, delay: 0.1, volumes: { chords: 0.55, bass: 0.6, drums: 0.6 } } },
   { id: "rnb", name: "R&B", blurb: "seventh-chord stabs, bouncy bass", color: "#F7DDE5",
-    patch: { chordInstrument: "epiano", chordStyle: "stabs", bassInstrument: "synthbass", bassStyle: "syncopated", drumPattern: "rnb", reverb: 0.25, volumes: { chords: 0.55, bass: 0.65, drums: 0.6 } } },
+    patch: { chordInstrument: "epiano", chordStyle: "stabs", bassInstrument: "synthbass", bassStyle: "syncopated", drumPreset: "rnb", reverb: 0.25, delay: 0.1, volumes: { chords: 0.55, bass: 0.65, drums: 0.6 } } },
   { id: "cinematic", name: "Cinematic", blurb: "harp arpeggios, cello, big toms", color: "#E9DDF5",
-    patch: { chordInstrument: "harp", chordStyle: "arp", bassInstrument: "cello", bassStyle: "roots", drumPattern: "cinematic", reverb: 0.7, volumes: { chords: 0.6, bass: 0.6, drums: 0.55 } } },
+    patch: { chordInstrument: "harp", chordStyle: "arp", bassInstrument: "cello", bassStyle: "roots", drumPreset: "cinematic", reverb: 0.7, delay: 0.15, volumes: { chords: 0.6, bass: 0.6, drums: 0.55 } } },
 ];
 
 const mix = (volume: number) => ({ volume, muted: false, solo: false });
+
+export const defaultEffects = (): Effects => ({ enabled: true, reverb: 0.25, delay: 0, tone: 0 });
 
 export function defaultArrangement(): Arrangement {
   return {
@@ -31,20 +41,22 @@ export function defaultArrangement(): Arrangement {
     chordStyle: "block",
     bassInstrument: "ebass",
     bassStyle: "roots",
-    drumPattern: "softPop",
-    reverb: 0.25,
+    drums: presetGrid("softPop"),
+    effects: defaultEffects(),
     tracks: { lead: mix(0.85), chords: mix(0.6), bass: mix(0.6), drums: mix(0.5), layer: mix(0.7) },
   };
 }
 
 export function applyMood(a: Arrangement, mood: MoodId): Arrangement {
   const m = MOODS.find((x) => x.id === mood)!;
-  const { volumes, ...rest } = m.patch;
+  const { volumes, drumPreset, reverb, delay, ...rest } = m.patch;
   return {
     ...a,
     ...rest,
     mood,
     enabled: true,
+    drums: presetGrid(drumPreset),
+    effects: { ...a.effects, reverb, delay },
     tracks: {
       ...a.tracks,
       chords: { ...a.tracks.chords, volume: volumes.chords },

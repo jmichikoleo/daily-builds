@@ -1,6 +1,6 @@
 // src/lib/theory.ts
 // small, rule-based music theory, key detection, chords, bass, drums.
-import type { BassStyle, ChordStyle, DrumPatternId, Note } from "./types";
+import { DRUM_ROWS, type BassStyle, type ChordStyle, type DrumGrid, type DrumRow, type Note } from "./types";
 
 export const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 export const midiName = (m: number) => `${NOTE_NAMES[((m % 12) + 12) % 12]}${Math.floor(m / 12) - 1}`;
@@ -156,36 +156,79 @@ export function buildBassPart(chords: Chord[], style: BassStyle, bars: number): 
   return out;
 }
 
-// 16-step drum grids (one bar of 16th notes). x = hit, o = ghost/soft.
-export interface DrumPattern { id: DrumPatternId; name: string; swing: number; perc_kind: "shaker" | "rim" | "tom"; kick: string; snare: string; hat: string; perc: string }
-export const DRUM_PATTERNS: DrumPattern[] = [
-  { id: "softPop", perc_kind: "shaker", name: "soft pop", swing: 0, kick: "x.......x.x.....", snare: "....x.......x...", hat: "x.x.x.x.x.x.x.x.", perc: "................" },
-  { id: "lofi", perc_kind: "rim", name: "lo-fi", swing: 0.3, kick: "x......x..x.....", snare: "....x.......x..o", hat: "x.x.x.xox.x.x.xo", perc: "................" },
-  { id: "rnb", perc_kind: "rim", name: "r&b", swing: 0.15, kick: "x.....x...x..x..", snare: "....x.......x...", hat: "x.xxx.x.x.xxx.x.", perc: "...o.......o...." },
-  { id: "indie", perc_kind: "shaker", name: "indie", swing: 0, kick: "x...x...x...x...", snare: "....x.......x...", hat: "xxxxxxxxxxxxxxxx", perc: "................" },
-  { id: "acoustic", perc_kind: "shaker", name: "simple acoustic", swing: 0.1, kick: "x.......x.......", snare: "................", hat: "................", perc: "..x...x...x...xo" },
-  { id: "cinematic", perc_kind: "tom", name: "cinematic toms", swing: 0, kick: "x.........x.....", snare: "................", hat: "................", perc: "x...x.x.x...x.x." },
-  { id: "none", perc_kind: "shaker", name: "no drums", swing: 0, kick: "", snare: "", hat: "", perc: "" },
+// 16-step drum presets. x = hit. Every preset fills the editable grid.
+interface DrumPreset { id: string; name: string; swing: number; percSound: DrumGrid["percSound"]; rows: Record<DrumRow, string> }
+const row = (kick: string, snare: string, closedHat: string, openHat = "................", perc = "................") => ({ kick, snare, closedHat, openHat, perc });
+
+export const DRUM_PRESETS: DrumPreset[] = [
+  { id: "softPop", name: "soft pop", swing: 0, percSound: "shaker", rows: row("x.......x.x.....", "....x.......x...", "x.x.x.x.x.x.x...", "..............x.") },
+  { id: "lofi", name: "lo-fi", swing: 0.55, percSound: "rim", rows: row("x......x..x.....", "....x.......x...", "x.x.x.x.x.x.x.x.", "................", "...............x") },
+  { id: "rnb", name: "r&b", swing: 0.3, percSound: "rim", rows: row("x.....x...x..x..", "....x.......x...", "x.xxx.x.x.xxx.x.", "................", "...x.......x....") },
+  { id: "indie", name: "indie", swing: 0, percSound: "shaker", rows: row("x...x...x...x...", "....x.......x...", "xxxxxxxxxxxxxx..", "..............x.") },
+  { id: "fourFloor", name: "four on the floor", swing: 0, percSound: "shaker", rows: row("x...x...x...x...", "....x.......x...", "................", "..x...x...x...x.") },
+  { id: "acoustic", name: "simple acoustic", swing: 0.2, percSound: "shaker", rows: row("x.......x.......", "................", "................", "................", "..x...x...x...xx") },
+  { id: "cinematic", name: "cinematic toms", swing: 0, percSound: "tom", rows: row("x.........x.....", "................", "................", "................", "x...x.x.x...x.x.") },
 ];
 
-const PIECE_MIDI = { kick: 36, snare: 38, hat: 42, shaker: 70, rim: 37, tom: 45 } as const;
+export const emptySteps = (): Record<DrumRow, boolean[]> =>
+  Object.fromEntries(DRUM_ROWS.map((r) => [r, new Array(16).fill(false)])) as Record<DrumRow, boolean[]>;
 
-export interface DrumHit { time: number; midi: number; velocity: number } // beats; midi = GM drum note
+export function presetGrid(id: string): DrumGrid {
+  const p = DRUM_PRESETS.find((x) => x.id === id);
+  if (!p) return { steps: emptySteps(), percSound: "shaker", swing: 0, preset: null };
+  const steps = Object.fromEntries(DRUM_ROWS.map((r) => [r, [...p.rows[r]].map((c) => c === "x")])) as Record<DrumRow, boolean[]>;
+  return { steps, percSound: p.percSound, swing: p.swing, preset: p.id };
+}
 
-export function buildDrumPart(id: DrumPatternId, bars: number): DrumHit[] {
-  const p = DRUM_PATTERNS.find((x) => x.id === id);
-  if (!p || id === "none") return [];
-  const out: DrumHit[] = [];
-  for (let b = 0; b < bars; b++) {
-    for (const piece of ["kick", "snare", "hat", "perc"] as const) {
-      const grid = p[piece];
-      const midi = piece === "perc" ? PIECE_MIDI[p.perc_kind] : PIECE_MIDI[piece];
-      for (let s = 0; s < grid.length; s++) {
-        if (grid[s] === ".") continue;
-        const swing = s % 2 === 1 ? p.swing * 0.125 : 0; // delay off-beat 16ths
-        out.push({ time: b * 4 + s * 0.25 + swing, midi, velocity: grid[s] === "o" ? 0.35 : 0.8 });
-      }
-    }
+/** Flip one step. Returns a new grid and forgets the preset name (it's yours now). */
+export function toggleStep(grid: DrumGrid, rowName: DrumRow, step: number): DrumGrid {
+  if (step < 0 || step > 15) return grid;
+  const r = [...grid.steps[rowName]];
+  r[step] = !r[step];
+  return { ...grid, preset: null, steps: { ...grid.steps, [rowName]: r } };
+}
+
+/** Make sure a stored grid has every row with exactly 16 booleans. */
+export function cleanGrid(g: Partial<DrumGrid> | undefined | null): DrumGrid {
+  const steps = emptySteps();
+  for (const r of DRUM_ROWS) {
+    const src = g?.steps?.[r];
+    if (Array.isArray(src)) for (let i = 0; i < 16; i++) steps[r][i] = !!src[i];
   }
+  const perc = g?.percSound;
+  return {
+    steps,
+    percSound: perc === "rim" || perc === "tom" ? perc : "shaker",
+    swing: Math.max(0, Math.min(1, Number(g?.swing) || 0)),
+    preset: typeof g?.preset === "string" ? g.preset : null,
+  };
+}
+
+export const gridIsEmpty = (g: DrumGrid) => DRUM_ROWS.every((r) => g.steps[r].every((x) => !x));
+
+/** GM drum notes (MIDI channel 10). */
+export const DRUM_NOTE = { kick: 36, snare: 38, closedHat: 42, openHat: 46, shaker: 70, rim: 37, tom: 45 } as const;
+const ROW_VELOCITY: Record<DrumRow, number> = { kick: 0.85, snare: 0.8, closedHat: 0.5, openHat: 0.55, perc: 0.55 };
+
+export interface DrumHit { time: number; midi: number; velocity: number } // beats
+
+/** The hits on one 16th step. `offset` is the swing delay in beats. */
+export function hitsAtStep(grid: DrumGrid, step: number): { midi: number; velocity: number; offset: number }[] {
+  const out: { midi: number; velocity: number; offset: number }[] = [];
+  const offset = step % 2 === 1 ? grid.swing * 0.08 : 0; // up to a third of a 16th
+  for (const r of DRUM_ROWS) {
+    if (!grid.steps[r][step]) continue;
+    const accent = r === "closedHat" && step % 4 !== 0 ? -0.12 : 0;
+    out.push({ midi: r === "perc" ? DRUM_NOTE[grid.percSound] : DRUM_NOTE[r], velocity: ROW_VELOCITY[r] + accent, offset });
+  }
+  return out;
+}
+
+/** The 16-step grid repeated for `bars` bars, with swing on the off-beat 16ths. */
+export function buildDrumPart(grid: DrumGrid, bars: number): DrumHit[] {
+  const out: DrumHit[] = [];
+  for (let b = 0; b < bars; b++)
+    for (let s = 0; s < 16; s++)
+      for (const h of hitsAtStep(grid, s)) out.push({ time: b * 4 + s * 0.25 + h.offset, midi: h.midi, velocity: h.velocity });
   return out;
 }

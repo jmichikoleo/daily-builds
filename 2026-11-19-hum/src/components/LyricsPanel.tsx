@@ -1,14 +1,19 @@
 // src/components/LyricsPanel.tsx
 // the lyrics notebook, sections you can add, rename, reorder and delete.
+import { useEffect, useRef } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type { LyricSection } from "../lib/types";
 import { SectionTitle } from "./ui";
 
-interface Props { sections: LyricSection[]; onChange: (s: LyricSection[]) => void; saveState: string }
+interface Props { sections: LyricSection[]; onChange: (s: LyricSection[]) => void; saveState: string; highlightId?: string | null; partNames?: Record<string, string> }
 
 const SUGGESTED = ["Verse", "Pre-Chorus", "Chorus", "Bridge", "Outro", "Intro", "Hook"];
 
-export default function LyricsPanel({ sections, onChange, saveState }: Props) {
+export default function LyricsPanel({ sections, onChange, saveState, highlightId = null, partNames = {} }: Props) {
+  const refs = useRef<Record<string, HTMLElement | null>>({});
+  useEffect(() => {
+    if (highlightId) refs.current[highlightId]?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightId]);
   const patch = (id: string, p: Partial<LyricSection>) => onChange(sections.map((s) => (s.id === id ? { ...s, ...p } : s)));
   const move = (i: number, dir: -1 | 1) => {
     const j = i + dir;
@@ -31,7 +36,9 @@ export default function LyricsPanel({ sections, onChange, saveState }: Props) {
       {sections.length === 0 && <p className="mb-3 text-sm text-ink-soft">nothing here yet. add a section and write whatever the melody makes you feel</p>}
       <div className="space-y-4">
         {sections.map((s, i) => (
-          <section key={s.id} className="group rounded-2xl border border-line bg-white p-3">
+          <section key={s.id} ref={(el) => { refs.current[s.id] = el; }}
+            className={`group rounded-2xl border bg-white p-3 transition-shadow ${s.id === highlightId ? "border-rose-deep shadow-[0_0_0_3px_#F7DDE5]" : "border-line"}`}>
+            {partNames[s.id] && <p className="mb-1 text-[10px] font-extrabold uppercase tracking-wider text-rose-deep/70">goes with the {partNames[s.id]} part</p>}
             <div className="mb-1 flex items-center gap-1">
               <input
                 value={s.title}

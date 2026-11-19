@@ -11,10 +11,16 @@ import { player, previewNote, renderSong } from "../audio/player";
 import { decodeArrayBuffer, getInstrument } from "../audio/instruments";
 import { extensionFor, toMono } from "../audio/recorder";
 import { quantize, transcribe } from "../audio/transcribe";
-import { deleteRecording, getRecording, putRecording } from "../lib/db";
+import { cleanupBlobs, getBlob, newRecordingKey, putBlob } from "../lib/db";
+import { regridNotes } from "../lib/tempo";
+import { deleteVersion, duplicateVersion, renameVersion, saveAsNewVersion, switchVersion } from "../lib/versions";
+import { SECTION_TYPES, addMarker, deleteMarker, moveMarker, pruneLyricLinks, updateMarker } from "../lib/markers";
 import { audioBufferToWav, download, safeName, songToMidi } from "../lib/exporters";
 import { PROGRESSIONS, detectKey, keyName, scoreProgression } from "../lib/theory";
-import type { Arrangement, Note, Song } from "../lib/types";
+import type { Arrangement, Note, SectionType, Song } from "../lib/types";
+import TempoControl from "./TempoControl";
+import VersionBar from "./VersionBar";
+import MarkerEditor from "./MarkerEditor";
 import RecorderDeck from "./RecorderDeck";
 import PianoRoll from "./PianoRoll";
 import InstrumentPicker from "./InstrumentPicker";
@@ -44,7 +50,9 @@ const useNarrow = () => {
 };
 
 export default function Studio({ songId }: { songId: string }) {
-  const { song, update, undo, redo, saveState, saveNow, canUndo, canRedo, get } = useSong(songId);
+  const { song, update, undo, redo, resetHistory, saveState, saveNow, canUndo, canRedo, get } = useSong(songId);
+  const [selectedMarker, setSelectedMarker] = useState<string | null>(null);
+  const [highlightLyric, setHighlightLyric] = useState<string | null>(null);
   const [leadBlob, setLeadBlob] = useState<Blob | null>(null);
   const [layerBlob, setLayerBlob] = useState<Blob | null>(null);
   const [voiceBuffer, setVoiceBuffer] = useState<AudioBuffer | null>(null);
@@ -62,25 +70,43 @@ export default function Studio({ songId }: { songId: string }) {
   const [exportOpen, setExportOpen] = useState(false);
   const narrow = useNarrow();
 
-  // load stored recordings
+  // load the recordings this version points to (versions can point to different ones)
+  const leadKey = song ? song.leadRecordingKey : undefined;
+  const layerKey = song ? song.layer?.recordingKey ?? null : undefined;
   useEffect(() => {
+    if (leadKey === undefined) return;
     let alive = true;
-    (async () => {
-      const lead = await getRecording(songId, "lead");
-      if (lead && alive) {
-        setLeadBlob(lead.blob);
-        decodeArrayBuffer(await lead.blob.arrayBuffer()).then((b) => alive && setVoiceBuffer(b)).catch(() => {});
-      }
-      const layer = await getRecording(songId, "layer");
-      if (layer && alive) {
-        setLayerBlob(layer.blob);
-        decodeArrayBuffer(await layer.blob.arrayBuffer())
-          .then((b) => alive && setLayerInfo({ peaks: computePeaks(toMono(b)), duration: b.duration, warning: null }))
-          .catch(() => {});
-      }
-    })();
-    return () => { alive = false; player.stop(); };
-  }, [songId]);
+    setLeadBlob(null);
+    setVoiceBuffer(null);
+    getBlob(leadKey).then(async (blob) => {
+      if (!alive || !blob) return;
+      setLeadBlob(blob);
+      decodeArrayBuffer(await blob.arrayBuffer()).then((b) => alive && setVoiceBuffer(b)).catch(() => {});
+    });
+    return () => { alive = false; };
+  }, [leadKey]);
+  useEffect(() => {
+    if (layerKey === undefined) return;
+    let alive = true;
+    setLayerBlob(null);
+    getBlob(layerKey).then(async (blob) => {
+      if (!alive) return;
+      setLayerBlob(blob);
+      if (!blob) { setLayerInfo({ peaks: [], duration: 0, warning: null }); return; }
+      decodeArrayBuffer(await blob.arrayBuffer())
+        .then((b) => alive && setLayerInfo((x) => ({ peaks: computePeaks(toMono(b)), duration: b.duration, warning: x.warning })))
+        .catch(() => {});
+    });
+    return () => { alive = false; };
+  }, [layerKey]);
+  useEffect(() => () => player.stop(), [songId]);
+
+  /** Save now, then delete blobs nothing points to any more. Never runs before the save lands. */
+  const saveAndTidy = useCallback(async () => {
+    await saveNow();
+    const s = get();
+    if (s) await cleanupBlobs(s).catch(() => {});
+  }, [saveNow, get]);
 
   // playback state + playhead
   useEffect(() => player.subscribe(() => setPlaying(player.playing)), []);
@@ -123,12 +149,13 @@ export default function Studio({ songId }: { songId: string }) {
       const mono = toMono(buf);
       const s = get()!;
       const r = transcribe(mono, buf.sampleRate, s.bpm);
-      await putRecording(s.id, part, blob);
+      const key = newRecordingKey(s.id, "rec");
+      await putBlob(key, blob); // a new key every time, so other versions keep their own recording
       if (part === "lead") {
         setLeadBlob(blob);
         setVoiceBuffer(buf);
         edit((x) => ({
-          ...x, notes: r.notes, originalNotes: r.notes, durationSec: r.durationSec, peaks: computePeaks(mono), hasRecording: true,
+          ...x, notes: r.notes, originalNotes: r.notes, durationSec: r.durationSec, peaks: computePeaks(mono), hasRecording: true, leadRecordingKey: key,
           recordingMime: blob.type || null, transcriptionWarning: r.quality.warning, transcribedBpm: x.bpm,
           arrangement: r.notes.length ? withBestChords(x.arrangement, r.notes) : x.arrangement,
         }));
@@ -136,16 +163,17 @@ export default function Studio({ songId }: { songId: string }) {
       } else {
         setLayerBlob(blob);
         setLayerInfo({ peaks: computePeaks(mono), duration: r.durationSec, warning: r.quality.warning });
-        edit((x) => ({ ...x, layer: { notes: r.notes, originalNotes: r.notes, instrument: x.layer?.instrument ?? "bells", offset: 0, hasRecording: true } }));
+        edit((x) => ({ ...x, layer: { notes: r.notes, originalNotes: r.notes, instrument: x.layer?.instrument ?? "bells", offset: 0, hasRecording: true, recordingKey: key } }));
         if (r.notes.length) toast(`added a layer with ${r.notes.length} notes`);
       }
+      await saveAndTidy();
     } catch (e) {
       console.error(e);
       toast("couldn't read that audio, try another recording");
     } finally {
       setBusy(null);
     }
-  }, [edit, get]);
+  }, [edit, get, saveAndTidy]);
 
   // keyboard shortcuts
   useEffect(() => {
@@ -212,6 +240,43 @@ export default function Studio({ songId }: { songId: string }) {
     if (!opts.live) refreshPlayback();
   };
 
+  // --- versions ---
+  const versionAction = async (fn: (s: Song) => Song, opts: { fresh?: boolean; tidy?: boolean } = {}) => {
+    if (opts.fresh) { player.stop(); setSelected(null); setSelectedMarker(null); }
+    update(fn);
+    if (opts.fresh) resetHistory();
+    if (opts.tidy) await saveAndTidy();
+  };
+
+  // --- tempo ---
+  /** Keep the hum at its real speed and move the beat grid (and drums) to `bpm`. */
+  const regrid = (bpm: number) => edit((s) => {
+    const k = bpm / s.transcribedBpm;
+    const scale = (ns: Note[]) => regridNotes(ns, s.transcribedBpm, bpm);
+    return {
+      ...s, bpm, transcribedBpm: bpm, notes: scale(s.notes), originalNotes: scale(s.originalNotes),
+      layer: s.layer ? { ...s.layer, notes: scale(s.layer.notes), originalNotes: scale(s.layer.originalNotes), offset: Math.round(s.layer.offset * k * 4) / 4 } : null,
+      markers: s.markers.map((m) => ({ ...m, beat: Math.round(m.beat * k * 4) / 4 })),
+    };
+  });
+
+  // --- section markers ---
+  const lyricIds = new Set(song.lyrics.map((l) => l.id));
+  const markersShown = song.markers.map((m) => (m.lyricId && !lyricIds.has(m.lyricId) ? { ...m, lyricId: null } : m));
+  const activeMarker = markersShown.find((m) => m.id === selectedMarker) ?? null;
+  const addPart = (type: SectionType) => {
+    const sel = song.notes.find((n) => n.id === selected);
+    const lastMarker = song.markers.at(-1);
+    const beat = playhead ?? sel?.start ?? (lastMarker ? lastMarker.beat + 8 : 0);
+    const snapped = snap ? Math.round(beat) : Math.round(beat * 100) / 100;
+    const r = addMarker(song.markers, song.lyrics, type, snapped);
+    edit((s) => ({ ...s, markers: r.markers, lyrics: r.lyrics }));
+    setSelectedMarker(r.marker.id);
+    setHighlightLyric(r.marker.lyricId);
+  };
+  const partNames: Record<string, string> = {};
+  markersShown.forEach((m) => { if (m.lyricId) partNames[m.lyricId] = m.label; });
+
   return (
     <div className="mx-auto max-w-7xl px-4 pb-24 pt-5 sm:px-6">
       {/* top bar */}
@@ -258,6 +323,14 @@ export default function Studio({ songId }: { songId: string }) {
               {hasNotes && <span className="text-xs text-ink-soft">{song.notes.length} notes, sounds like {keyName(detectKey(song.notes))}</span>}
             </SectionTitle>
 
+            <VersionBar song={song}
+              onSwitch={(id) => { versionAction((s) => switchVersion(s, id), { fresh: true }); toast("switched version"); }}
+              onSaveNew={(name) => { versionAction((s) => saveAsNewVersion(s, name)); toast("saved a new version ♡"); }}
+              onDuplicate={(id) => { versionAction((s) => duplicateVersion(s, id)); toast("copied"); }}
+              onRename={(id, name) => versionAction((s) => renameVersion(s, id, name))}
+              onDelete={(id) => { versionAction((s) => deleteVersion(s, id), { fresh: true, tidy: true }); toast("version deleted"); }}
+            />
+
             {song.transcriptionWarning && (
               <p className="mb-3 rounded-xl bg-butter px-3 py-2 text-sm" role="status">{song.transcriptionWarning}</p>
             )}
@@ -278,11 +351,8 @@ export default function Studio({ songId }: { songId: string }) {
                 <Mic2 size={13} /> + my voice
               </button>
               <span className="mx-1 hidden h-6 w-px bg-line sm:block" />
-              <label className="flex items-center gap-2 text-sm font-bold">
-                tempo
-                <input type="range" min={50} max={180} value={song.bpm} onChange={(e) => edit((s) => ({ ...s, bpm: +e.target.value }), false)} className="w-24 sm:w-28" aria-label="tempo" />
-                <span className="w-14 tabular-nums text-ink-soft">{song.bpm} bpm</span>
-              </label>
+              <TempoControl bpm={song.bpm} transcribedBpm={song.transcribedBpm} hasNotes={hasNotes}
+                onSetBpm={(bpm) => edit((s) => ({ ...s, bpm }), false)} onRegrid={regrid} />
               <span className="flex items-center gap-1 text-sm font-bold">
                 key
                 <button className="chip !px-2" onClick={() => edit((s) => ({ ...s, notes: s.notes.map((n) => ({ ...n, midi: n.midi - 1 })) }))} disabled={!hasNotes} aria-label="transpose down"><Minus size={12} /></button>
@@ -303,6 +373,11 @@ export default function Studio({ songId }: { songId: string }) {
               <button className="chip" disabled={!selected} onClick={() => { setNotes(song.notes.filter((n) => n.id !== selected)); setSelected(null); }}><Trash2 size={13} /> delete</button>
               <button className="chip" disabled={!hasNotes} onClick={() => setNotes(quantize(song.notes, 0.25))} title="snap every note to the nearest 16th"><Wand2 size={13} /> tidy timing</button>
               <button className="chip" disabled={!song.originalNotes.length} onClick={() => setNotes(song.originalNotes)} title="go back to exactly what you hummed"><RotateCcw size={13} /> reset to original</button>
+              <select value="" onChange={(e) => { if (e.target.value) addPart(e.target.value as SectionType); }}
+                className="rounded-full border border-line bg-white px-2 py-1 text-xs font-bold" aria-label="add a song part">
+                <option value="">+ part</option>
+                {SECTION_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
               <span className="ml-auto flex items-center gap-1">
                 <select value={snap} onChange={(e) => setSnap(+e.target.value)} className="rounded-full border border-line bg-white px-2 py-1 text-xs font-bold" aria-label="snap">
                   <option value={0}>snap off</option>
@@ -326,7 +401,22 @@ export default function Studio({ songId }: { songId: string }) {
               selectedId={selected}
               onSelect={setSelected}
               compact={narrow}
+              markers={markersShown}
+              selectedMarkerId={selectedMarker}
+              onSelectMarker={(id) => { setSelectedMarker(id); if (id) setHighlightLyric(markersShown.find((m) => m.id === id)?.lyricId ?? null); }}
+              onMoveMarker={(id, beat) => edit((s) => ({ ...s, markers: moveMarker(s.markers, id, beat) }))}
             />
+            {activeMarker && (
+              <MarkerEditor
+                marker={activeMarker}
+                lyrics={song.lyrics}
+                onChange={(patch) => edit((s) => ({ ...s, markers: updateMarker(s.markers, activeMarker.id, patch) }), !("label" in patch))}
+                onDelete={() => { edit((s) => ({ ...s, markers: deleteMarker(s.markers, activeMarker.id) })); setSelectedMarker(null); }}
+                onJump={() => startPlayback(activeMarker.beat)}
+                onOpenLyrics={() => { setTab("lyrics"); setHighlightLyric(activeMarker.lyricId); }}
+                onClose={() => setSelectedMarker(null)}
+              />
+            )}
             <p className="mt-2 text-[11px] text-ink-soft">
               drag a note up or down to change the pitch, or sideways to move it. drag the right edge to make it longer. double-click an empty spot to add a note, or a note to delete it. arrow keys nudge it, space plays
             </p>
@@ -362,10 +452,11 @@ export default function Studio({ songId }: { songId: string }) {
             song={song} recording={layerBlob} busy={busy === "layer"} warning={layerInfo.warning} peaks={layerInfo.peaks} durationSec={layerInfo.duration}
             onCaptured={(b) => processCapture(b, "layer")}
             onChange={(layer) => edit((s) => ({ ...s, layer }))}
-            onRemove={async () => { await deleteRecording(song.id, "layer"); setLayerBlob(null); setLayerInfo({ peaks: [], duration: 0, warning: null }); edit((s) => ({ ...s, layer: null })); }}
+            onRemove={async () => { edit((s) => ({ ...s, layer: null })); setLayerInfo({ peaks: [], duration: 0, warning: null }); await saveAndTidy(); }}
           />
         )}
-        {tab === "lyrics" && <LyricsPanel sections={song.lyrics} onChange={(lyrics) => update((s) => ({ ...s, lyrics }))} saveState={saveState} />}
+        {tab === "lyrics" && <LyricsPanel sections={song.lyrics} highlightId={highlightLyric} partNames={partNames}
+          onChange={(lyrics) => update((s) => ({ ...s, lyrics, markers: pruneLyricLinks(s.markers, lyrics) }))} saveState={saveState} />}
       </div>
       <Toaster />
     </div>

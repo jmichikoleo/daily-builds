@@ -3,8 +3,9 @@
 // instrument previews, and offline WAV rendering. Live and offline use the same graph code.
 import * as Tone from "tone";
 import { createVoice, loadSamples, getInstrument, type Voice } from "./instruments";
-import { buildBassPart, buildChordPart, buildDrumPart, chordsFor, PROGRESSIONS } from "../lib/theory";
-import type { Song, TrackMix } from "../lib/types";
+import { buildBassPart, buildChordPart, buildDrumPart, chordsFor, gridIsEmpty, hitsAtStep, presetGrid, PROGRESSIONS } from "../lib/theory";
+import { effectParams } from "../lib/effects";
+import type { DrumGrid, Effects, Song, TrackMix } from "../lib/types";
 
 type TrackName = "lead" | "layer" | "chords" | "bass" | "drums";
 interface TrackEvent { time: number; midi: number; duration: number; velocity: number } // beats
@@ -33,8 +34,8 @@ export function buildTracks(song: Song): Track[] {
     const chords = chordsFor(prog, a.key);
     tracks.push({ name: "chords", instrument: a.chordInstrument, events: buildChordPart(chords, a.chordStyle, bars), mix: a.tracks.chords });
     tracks.push({ name: "bass", instrument: a.bassInstrument, events: buildBassPart(chords, a.bassStyle, bars), mix: a.tracks.bass });
-    tracks.push({ name: "drums", instrument: "drums", mix: a.tracks.drums,
-      events: buildDrumPart(a.drumPattern, bars).map((h) => ({ time: h.time, midi: h.midi, duration: 0.1, velocity: h.velocity })) });
+    if (!gridIsEmpty(a.drums)) tracks.push({ name: "drums", instrument: "drums", mix: a.tracks.drums,
+      events: buildDrumPart(a.drums, bars).map((h) => ({ time: h.time, midi: h.midi, duration: 0.1, velocity: h.velocity })) });
   }
   const anySolo = tracks.some((t) => t.mix.solo);
   return tracks.filter((t) => !t.mix.muted && (!anySolo || t.mix.solo));
@@ -42,15 +43,47 @@ export function buildTracks(song: Song): Track[] {
 
 export const playEndBeat = (song: Song) => (song.arrangement.enabled && song.notes.length ? songBars(song) * 4 : songEndBeat(song));
 
-interface Session { voices: Voice[]; nodes: Tone.ToneAudioNode[]; trackGains: Map<TrackName, Tone.Gain> }
+interface FxRack { eq: Tone.EQ3; reverbSend: Tone.Gain; delaySend: Tone.Gain; delay: Tone.FeedbackDelay }
+interface Session { voices: Voice[]; nodes: Tone.ToneAudioNode[]; trackGains: Map<TrackName, Tone.Gain>; fx: FxRack }
+
+/**
+ * The shared effects rack (one per playback session, never per render):
+ * tracks -> bus -> tone EQ -> master, with reverb and delay as sends from the EQ.
+ */
+function buildFx(effects: Effects, master: Tone.Gain): { bus: Tone.Gain; fx: FxRack; nodes: Tone.ToneAudioNode[] } {
+  const p = effectParams(effects);
+  const bus = new Tone.Gain(1);
+  const eq = new Tone.EQ3({ low: p.lowDb, mid: 0, high: p.highDb, lowFrequency: 250, highFrequency: 3000 });
+  const reverb = new Tone.Freeverb({ roomSize: 0.86, dampening: 2800, wet: 1 });
+  const delay = new Tone.FeedbackDelay({ delayTime: "8n.", feedback: p.delayFeedback, wet: 1 });
+  const reverbSend = new Tone.Gain(p.reverbSend);
+  const delaySend = new Tone.Gain(p.delaySend);
+  bus.connect(eq);
+  eq.connect(master);
+  eq.connect(reverbSend);
+  eq.connect(delaySend);
+  reverbSend.connect(reverb);
+  delaySend.connect(delay);
+  reverb.connect(master);
+  delay.connect(master);
+  return { bus, fx: { eq, reverbSend, delaySend, delay }, nodes: [bus, eq, reverb, delay, reverbSend, delaySend] };
+}
+
+function applyFx(fx: FxRack, effects: Effects) {
+  const p = effectParams(effects);
+  fx.reverbSend.gain.rampTo(p.reverbSend, 0.05);
+  fx.delaySend.gain.rampTo(p.delaySend, 0.05);
+  fx.delay.feedback.rampTo(p.delayFeedback, 0.05);
+  fx.eq.low.rampTo(p.lowDb, 0.05);
+  fx.eq.high.rampTo(p.highDb, 0.05);
+}
 
 /** Build the audio graph in the current Tone context and schedule every event on `transport`. */
 async function buildSession(song: Song, tracks: Track[], transport: ReturnType<typeof Tone.getTransport>, voiceBuffer: AudioBuffer | null): Promise<Session> {
   const limiter = new Tone.Limiter(-1).toDestination();
   const master = new Tone.Gain(0.85).connect(limiter);
-  const reverb = new Tone.Freeverb({ roomSize: 0.86, dampening: 2800, wet: 1 }).connect(master);
-  const send = new Tone.Gain(song.arrangement.reverb * 0.5).connect(reverb);
-  const nodes: Tone.ToneAudioNode[] = [limiter, master, reverb, send];
+  const { bus, fx, nodes: fxNodes } = buildFx(song.arrangement.effects, master);
+  const nodes: Tone.ToneAudioNode[] = [limiter, master, ...fxNodes];
   const voices: Voice[] = [];
   const trackGains = new Map<TrackName, Tone.Gain>();
   const secPerBeat = 60 / song.bpm;
@@ -61,8 +94,7 @@ async function buildSession(song: Song, tracks: Track[], transport: ReturnType<t
     const voice = await createVoice(t.instrument);
     const gain = new Tone.Gain(t.mix.volume ** 1.5);
     voice.output.connect(gain);
-    gain.connect(master);
-    gain.connect(send);
+    gain.connect(bus);
     voices.push(voice);
     nodes.push(gain);
     trackGains.set(t.name, gain);
@@ -77,7 +109,7 @@ async function buildSession(song: Song, tracks: Track[], transport: ReturnType<t
     player.sync().start(0);
     nodes.push(player);
   }
-  return { voices, nodes, trackGains };
+  return { voices, nodes, trackGains, fx };
 }
 
 class Player {
@@ -123,6 +155,42 @@ class Player {
     }
     const from = Math.max(0, Math.min(opts.from ?? 0, end));
     transport.start("+0.08", `${Math.round(from * transport.PPQ)}i`);
+    this.playing = true;
+    this.emit();
+  }
+
+  /** Live effect changes without restarting. */
+  setEffects(effects: Effects) {
+    if (this.session) applyFx(this.session.fx, effects);
+  }
+
+  /**
+   * Loop one bar of drums for the sequencer. The grid is read on every 16th, so toggling
+   * steps is heard right away. Uses the Tone transport, not setInterval.
+   */
+  async playDrumLoop(getGrid: () => DrumGrid, bpm: number, volume: number, getEffects: () => Effects, onStep?: (step: number) => void) {
+    const token = ++this.token;
+    this.stop(false);
+    await Tone.start();
+    const transport = Tone.getTransport();
+    transport.bpm.value = bpm;
+    const limiter = new Tone.Limiter(-1).toDestination();
+    const master = new Tone.Gain(0.85).connect(limiter);
+    const { bus, fx, nodes: fxNodes } = buildFx(getEffects(), master);
+    const voice = await createVoice("drums");
+    if (token !== this.token) { voice.dispose(); [limiter, master, ...fxNodes].forEach((n) => n.dispose()); return; }
+    const gain = new Tone.Gain(volume ** 1.5).connect(bus);
+    voice.output.connect(gain);
+    let step = 0;
+    transport.scheduleRepeat((time) => {
+      const s = step % 16;
+      step++;
+      for (const h of hitsAtStep(getGrid(), s)) voice.play(h.midi, 0.1, time + h.offset * (60 / transport.bpm.value), h.velocity);
+      if (onStep) window.setTimeout(() => onStep(s), Math.max(0, (time - Tone.now()) * 1000));
+    }, "16n", 0);
+    this.session = { voices: [voice], nodes: [limiter, master, gain, ...fxNodes], trackGains: new Map([["drums", gain]]), fx };
+    this.endCb = null;
+    transport.start("+0.05");
     this.playing = true;
     this.emit();
   }
@@ -193,7 +261,7 @@ export async function previewInstrument(id: string) {
   lastPreview = v;
   const t0 = Tone.now() + 0.05;
   if (def.drumsOnly) {
-    buildDrumPart("softPop", 1).forEach((h) => v.play(h.midi, 0.1, t0 + h.time * 0.33, h.velocity));
+    buildDrumPart(presetGrid("softPop"), 1).forEach((h) => v.play(h.midi, 0.1, t0 + h.time * 0.33, h.velocity));
     return;
   }
   const phrase = def.category === "bass" ? PHRASES.bass : PHRASES.melody;

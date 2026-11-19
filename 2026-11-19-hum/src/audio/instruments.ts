@@ -220,7 +220,7 @@ export async function createVoice(id: string): Promise<Voice & { standIn: boolea
 // ---------------------------------------------------------------------------
 // Drum kit: fully synthesized, so it works offline. `midi` picks the piece.
 
-export const DRUM_MIDI = { kick: 36, snare: 38, hat: 42, shaker: 70, rim: 37, tom: 45 } as const;
+export const DRUM_MIDI = { kick: 36, snare: 38, hat: 42, openHat: 46, shaker: 70, rim: 37, tom: 45 } as const;
 
 export function createDrumVoice(): Voice {
   const out = new Tone.Gain(1);
@@ -230,11 +230,13 @@ export function createDrumVoice(): Voice {
   const snareBody = new Tone.MembraneSynth({ pitchDecay: 0.02, octaves: 2, envelope: { attack: 0.001, decay: 0.1, sustain: 0 }, volume: -16 }).connect(out);
   const hatFilter = new Tone.Filter(8000, "highpass").connect(out);
   const hat = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.001, decay: 0.04, sustain: 0 }, volume: -18 }).connect(hatFilter);
+  const openHatFilter = new Tone.Filter(7000, "highpass").connect(out);
+  const openHat = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.002, decay: 0.32, sustain: 0 }, volume: -20 }).connect(openHatFilter);
   const shakerFilter = new Tone.Filter(5000, "bandpass").connect(out);
   const shaker = new Tone.NoiseSynth({ noise: { type: "pink" }, envelope: { attack: 0.01, decay: 0.07, sustain: 0 }, volume: -16 }).connect(shakerFilter);
   const rim = new Tone.MembraneSynth({ pitchDecay: 0.005, octaves: 1, envelope: { attack: 0.001, decay: 0.05, sustain: 0 }, volume: -14 }).connect(out);
   const tom = new Tone.MembraneSynth({ pitchDecay: 0.08, octaves: 3, envelope: { attack: 0.001, decay: 0.6, sustain: 0 }, volume: -6 }).connect(out);
-  const all = [kick, snare, snareBody, hat, shaker, rim, tom, snareFilter, hatFilter, shakerFilter];
+  const all = [kick, snare, snareBody, hat, openHat, shaker, rim, tom, snareFilter, hatFilter, openHatFilter, shakerFilter];
   return {
     output: out,
     play: (m, _dur, time, vel) => {
@@ -242,6 +244,7 @@ export function createDrumVoice(): Voice {
         case DRUM_MIDI.kick: kick.triggerAttackRelease("C1", 0.3, time, vel); break;
         case DRUM_MIDI.snare: snare.triggerAttackRelease(0.15, time, vel); snareBody.triggerAttackRelease("G2", 0.1, time, vel); break;
         case DRUM_MIDI.hat: hat.triggerAttackRelease(0.04, time, vel); break;
+        case DRUM_MIDI.openHat: openHat.triggerAttackRelease(0.3, time, vel); break;
         case DRUM_MIDI.shaker: shaker.triggerAttackRelease(0.07, time, vel); break;
         case DRUM_MIDI.rim: rim.triggerAttackRelease("E4", 0.05, time, vel); break;
         case DRUM_MIDI.tom: tom.triggerAttackRelease("A1", 0.5, time, vel); break;

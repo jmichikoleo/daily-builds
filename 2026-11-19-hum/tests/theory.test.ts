@@ -1,7 +1,7 @@
 // tests/theory.test.ts
 // key detection, chord fitting and accompaniment builders.
 import { describe, expect, it } from "vitest";
-import { buildBassPart, buildChordPart, buildDrumPart, chordsFor, detectKey, PROGRESSIONS, scoreProgression } from "../src/lib/theory";
+import { buildBassPart, buildChordPart, buildDrumPart, chordsFor, cleanGrid, detectKey, presetGrid, PROGRESSIONS, scoreProgression } from "../src/lib/theory";
 import { applyMood, defaultArrangement, MOODS } from "../src/lib/moods";
 import type { Note } from "../src/lib/types";
 
@@ -35,8 +35,8 @@ describe("theory", () => {
     expect(arp.length).toBe(24);
     expect(pad.length).not.toBe(arp.length);
     expect(buildBassPart(chords, "walking", 2)).toHaveLength(8);
-    expect(buildDrumPart("none", 4)).toHaveLength(0);
-    const lofi = buildDrumPart("lofi", 1);
+    expect(buildDrumPart(cleanGrid(null), 4)).toHaveLength(0);
+    const lofi = buildDrumPart(presetGrid("lofi"), 1);
     expect(lofi.some((h) => h.time % 0.25 !== 0)).toBe(true); // swung
   });
 
@@ -44,7 +44,7 @@ describe("theory", () => {
     const base = defaultArrangement();
     const signatures = new Set(MOODS.map((m) => {
       const a = applyMood(base, m.id);
-      return `${a.chordInstrument}/${a.chordStyle}/${a.bassInstrument}/${a.bassStyle}/${a.drumPattern}`;
+      return `${a.chordInstrument}/${a.chordStyle}/${a.bassInstrument}/${a.bassStyle}/${a.drums.preset}`;
     }));
     expect(signatures.size).toBe(MOODS.length);
   });

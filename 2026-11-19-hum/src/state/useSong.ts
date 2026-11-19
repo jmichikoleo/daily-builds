@@ -2,7 +2,6 @@
 // loads a song, autosaves it, and keeps undo/redo history for note edits.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSong, saveSong } from "../lib/db";
-import { defaultArrangement } from "../lib/moods";
 import type { Song } from "../lib/types";
 
 type SaveState = "saved" | "saving" | "error";
@@ -20,10 +19,8 @@ export function useSong(id: string) {
   useEffect(() => {
     getSong(id).then((s) => {
       if (!s) return setSong(null);
-      // fill fields that older saves might not have
-      const filled: Song = { ...s, peaks: s.peaks ?? [], transcribedBpm: s.transcribedBpm ?? s.bpm, arrangement: { ...defaultArrangement(), ...s.arrangement } };
-      latest.current = filled;
-      setSong(filled);
+      latest.current = s; // getSong already migrated it to the current shape
+      setSong(s);
     });
   }, [id]);
 
@@ -64,8 +61,14 @@ export function useSong(id: string) {
     bump((x) => x + 1);
   }, [persist]);
 
-  // Undo only restores the musical content (notes, layer, tempo), not titles or lyrics.
-  const restore = (from: Song, to: Song): Song => ({ ...to, notes: from.notes, bpm: from.bpm, layer: from.layer && to.layer ? { ...to.layer, notes: from.layer.notes } : to.layer });
+  // Undo restores note-level edits (melody, layer notes, tempo grid, section markers), not titles, lyrics or recordings.
+  const restore = (from: Song, to: Song): Song => ({
+    ...to, notes: from.notes, originalNotes: from.originalNotes, bpm: from.bpm, transcribedBpm: from.transcribedBpm, markers: from.markers,
+    layer: from.layer && to.layer ? { ...to.layer, notes: from.layer.notes, offset: from.layer.offset } : to.layer,
+  });
+
+  /** Forget undo history (after switching versions, so undo can't pull in another version's notes). */
+  const resetHistory = useCallback(() => { past.current = []; future.current = []; bump((x) => x + 1); }, []);
 
   const undo = useCallback(() => {
     const prev = past.current.pop();
@@ -82,7 +85,7 @@ export function useSong(id: string) {
   }, [update]);
 
   return {
-    song, update, undo, redo, saveState, saveNow: persist, get: () => latest.current,
+    song, update, undo, redo, resetHistory, saveState, saveNow: persist, get: () => latest.current,
     canUndo: past.current.length > 0, canRedo: future.current.length > 0,
   };
 }
