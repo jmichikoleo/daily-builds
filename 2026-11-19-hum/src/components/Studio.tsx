@@ -27,9 +27,11 @@ import InstrumentPicker from "./InstrumentPicker";
 import ArrangePanel from "./ArrangePanel";
 import LayerPanel from "./LayerPanel";
 import LyricsPanel from "./LyricsPanel";
+import EffectsPanel from "./EffectsPanel";
+import DrumSequencer from "./DrumSequencer";
 import { SectionTitle, Toaster, computePeaks, toast } from "./ui";
 
-type Tab = "arrange" | "layer" | "lyrics";
+type Tab = "arrange" | "drums" | "effects" | "layer" | "lyrics";
 
 /** After a new transcription: detect the key and pre-pick the chord progression that fits best. */
 function withBestChords(a: Arrangement, notes: Note[]): Arrangement {
@@ -438,7 +440,7 @@ export default function Studio({ songId }: { songId: string }) {
 
       {/* lower tabs */}
       <nav className="mt-8 flex gap-2 overflow-x-auto" role="tablist">
-        {([["arrange", "arrange"], ["layer", "add another hum"], ["lyrics", "lyrics"]] as const).map(([id, label]) => (
+        {([["arrange", "arrange"], ["drums", "drums"], ["effects", "effects"], ["layer", "add another hum"], ["lyrics", "lyrics"]] as const).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
             className={`shrink-0 rounded-full px-4 py-2 text-sm font-extrabold transition ${tab === id ? "bg-ink text-white" : "bg-white/70 hover:bg-white"}`}>
             {label}
@@ -446,7 +448,15 @@ export default function Studio({ songId }: { songId: string }) {
         ))}
       </nav>
       <div className="mt-3">
-        {tab === "arrange" && <ArrangePanel song={song} onChange={changeArrangement} />}
+        {tab === "arrange" && <ArrangePanel song={song} onChange={changeArrangement} onOpenDrums={() => setTab("drums")} />}
+        {tab === "drums" && (
+          <DrumSequencer grid={song.arrangement.drums} bpm={song.bpm} volume={song.arrangement.tracks.drums.volume} effects={song.arrangement.effects}
+            bandOn={song.arrangement.enabled} onChange={(drums) => changeArrangement({ ...song.arrangement, drums })} />
+        )}
+        {tab === "effects" && (
+          <EffectsPanel effects={song.arrangement.effects}
+            onChange={(effects) => { player.setEffects(effects); changeArrangement({ ...song.arrangement, effects }, { live: true }); }} />
+        )}
         {tab === "layer" && (
           <LayerPanel
             song={song} recording={layerBlob} busy={busy === "layer"} warning={layerInfo.warning} peaks={layerInfo.peaks} durationSec={layerInfo.duration}

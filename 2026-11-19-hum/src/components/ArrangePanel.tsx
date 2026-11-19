@@ -10,7 +10,7 @@ import { DRUM_PRESETS, NOTE_NAMES, PROGRESSIONS, chordsFor, detectKey, keyName, 
 import type { Arrangement, BassStyle, ChordStyle, Song, TrackMix } from "../lib/types";
 import { SectionTitle } from "./ui";
 
-interface Props { song: Song; onChange: (a: Arrangement, opts?: { live?: boolean }) => void }
+interface Props { song: Song; onChange: (a: Arrangement, opts?: { live?: boolean }) => void; onOpenDrums?: () => void }
 
 const CHORD_STYLES: { id: ChordStyle; label: string }[] = [
   { id: "block", label: "simple" }, { id: "pad", label: "sustained" }, { id: "strum", label: "strummed" }, { id: "arp", label: "arpeggio" }, { id: "stabs", label: "stabs" },
@@ -19,7 +19,7 @@ const BASS_STYLES: { id: BassStyle; label: string }[] = [
   { id: "roots", label: "long roots" }, { id: "rootFifth", label: "root and fifth" }, { id: "octaves", label: "octaves" }, { id: "syncopated", label: "bouncy" }, { id: "walking", label: "walking" },
 ];
 
-export default function ArrangePanel({ song, onChange }: Props) {
+export default function ArrangePanel({ song, onChange, onOpenDrums }: Props) {
   const a = song.arrangement;
   const detected = useMemo(() => detectKey(song.notes), [song.notes]);
   const ranked = useMemo(
@@ -120,6 +120,7 @@ export default function ArrangePanel({ song, onChange }: Props) {
               {!a.drums.preset && <option value="">your own beat</option>}
               {DRUM_PRESETS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
+            {onOpenDrums && <button className="chip shrink-0" onClick={onOpenDrums}>edit</button>}
           </Row>
           <label className="flex items-center gap-3 text-sm font-bold">
             reverb
