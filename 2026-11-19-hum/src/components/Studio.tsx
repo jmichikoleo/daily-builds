@@ -4,14 +4,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, Download, FileAudio, FileMusic, Loader2, Minus, Mic2, Play, Plus, Redo2, Repeat, RotateCcw, Square, Trash2, Undo2,
-  Wand2, ZoomIn, ZoomOut, Heart, ChevronDown,
+  Wand2, ZoomIn, ZoomOut, Heart, ChevronDown, Palette,
 } from "lucide-react";
 import { useSong } from "../state/useSong";
 import { player, previewNote, renderSong } from "../audio/player";
 import { decodeArrayBuffer, getInstrument } from "../audio/instruments";
 import { extensionFor, toMono } from "../audio/recorder";
 import { quantize, transcribe } from "../audio/transcribe";
-import { cleanupBlobs, getBlob, newRecordingKey, putBlob } from "../lib/db";
+import { cleanupBlobs, getBlob, newRecordingKey, putBlob, withCover } from "../lib/db";
+import CoverEditor, { CoverThumb } from "./CoverEditor";
 import { regridNotes } from "../lib/tempo";
 import { deleteVersion, duplicateVersion, renameVersion, saveAsNewVersion, switchVersion } from "../lib/versions";
 import { SECTION_TYPES, addMarker, deleteMarker, moveMarker, pruneLyricLinks, updateMarker } from "../lib/markers";
@@ -70,6 +71,7 @@ export default function Studio({ songId }: { songId: string }) {
   const [tab, setTab] = useState<Tab>("arrange");
   const [exporting, setExporting] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [coverOpen, setCoverOpen] = useState(false);
   const narrow = useNarrow();
 
   // load the recordings this version points to (versions can point to different ones)
@@ -285,6 +287,9 @@ export default function Studio({ songId }: { songId: string }) {
       <header className="flex flex-wrap items-center gap-3">
         <a href="#/" className="chip"><ArrowLeft size={14} /> my songs</a>
         <a href="#/" className="font-display text-2xl font-semibold italic">hum<span className="text-rose-deep">.</span></a>
+        <button onClick={() => setCoverOpen(true)} className="group relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-line bg-blush" title="edit cover" aria-label="edit cover">
+          {song.cover ? <CoverThumb cover={song.cover} title={song.title} className="h-full w-full" /> : <Palette size={16} className="m-auto text-rose-deep" />}
+        </button>
         <input
           value={song.title}
           onChange={(e) => update((s) => ({ ...s, title: e.target.value }))}
@@ -468,6 +473,11 @@ export default function Studio({ songId }: { songId: string }) {
         {tab === "lyrics" && <LyricsPanel sections={song.lyrics} highlightId={highlightLyric} partNames={partNames}
           onChange={(lyrics) => update((s) => ({ ...s, lyrics, markers: pruneLyricLinks(s.markers, lyrics) }))} saveState={saveState} />}
       </div>
+      {coverOpen && (
+        <CoverEditor title={song.title} cover={song.cover} onClose={() => setCoverOpen(false)}
+          onSave={async (cover, img) => { const next = await withCover(get()!, cover, img); update(() => next); await saveAndTidy(); }}
+          onRemove={async () => { update((s) => ({ ...s, cover: null })); await saveAndTidy(); }} />
+      )}
       <Toaster />
     </div>
   );

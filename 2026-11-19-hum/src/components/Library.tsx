@@ -1,8 +1,9 @@
 // src/components/Library.tsx
 // "My Songs", create, open, rename, duplicate, delete.
 import { useEffect, useState } from "react";
-import { Copy, Pencil, Plus, Trash2, Check, X, Music2 } from "lucide-react";
-import { deleteSong, duplicateSong, listSongs, newSong, saveSong } from "../lib/db";
+import { Copy, Pencil, Plus, Trash2, Check, X, Music2, Palette } from "lucide-react";
+import { cleanupBlobs, deleteSong, duplicateSong, listSongs, newSong, saveSong, withCover } from "../lib/db";
+import CoverEditor, { CoverThumb } from "./CoverEditor";
 import { getInstrument } from "../audio/instruments";
 import type { Song } from "../lib/types";
 import { INSTRUMENT_ICON, PeaksWave, Reel, Toaster, fmtTime, toast } from "./ui";
@@ -84,6 +85,7 @@ function SongCard({ song, tint, onChanged }: { song: Song; tint: string; onChang
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState(song.title);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [coverOpen, setCoverOpen] = useState(false);
   const inst = getInstrument(song.leadInstrument);
   const Icon = INSTRUMENT_ICON[inst.id];
 
@@ -97,8 +99,9 @@ function SongCard({ song, tint, onChanged }: { song: Song; tint: string; onChang
   return (
     <li className="panel group relative overflow-hidden p-4 transition hover:-translate-y-0.5 hover:shadow-lg">
       <button className="block w-full text-left" onClick={() => go(`/song/${song.id}`)} aria-label={`open ${song.title}`} disabled={renaming}>
-        <div className="flex h-20 items-center rounded-2xl px-3" style={{ background: tint }}>
-          <PeaksWave peaks={song.peaks} className="h-12 w-full" color="#B9729B" />
+        <div className="flex h-20 items-center gap-3 rounded-2xl px-3" style={{ background: tint }}>
+          {song.cover && <CoverThumb cover={song.cover} title={song.title} className="h-16 w-16 shrink-0 rounded-xl shadow-sm" />}
+          <PeaksWave peaks={song.peaks} className="h-12 min-w-0 flex-1" color="#B9729B" />
         </div>
       </button>
       <div className="mt-3 flex items-start justify-between gap-2">
@@ -132,10 +135,16 @@ function SongCard({ song, tint, onChanged }: { song: Song; tint: string; onChang
           <>
             <button className="chip" onClick={() => setRenaming(true)}><Pencil size={13} /> rename</button>
             <button className="chip" onClick={async () => { await duplicateSong(song.id); toast("duplicated ♡"); onChanged(); }}><Copy size={13} /> duplicate</button>
+            <button className="chip" onClick={() => setCoverOpen(true)}><Palette size={13} /> cover</button>
             <button className="chip ml-auto" onClick={() => setConfirmDelete(true)} aria-label="delete song"><Trash2 size={13} /></button>
           </>
         )}
       </div>
+      {coverOpen && (
+        <CoverEditor title={song.title} cover={song.cover} onClose={() => setCoverOpen(false)}
+          onSave={async (cover, img) => { const s = await withCover(song, cover, img); await saveSong(s); await cleanupBlobs(s); onChanged(); }}
+          onRemove={async () => { const s = { ...song, cover: null }; await saveSong(s); await cleanupBlobs(s); onChanged(); }} />
+      )}
     </li>
   );
 }

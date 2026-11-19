@@ -2,7 +2,7 @@
 // IndexedDB storage (Dexie). songs + every audio/image blob, keyed by `${songId}:<name>`.
 // the schema is the same as v1. new song fields are filled in when a song is read (see migrate.ts).
 import Dexie, { type Table } from "dexie";
-import type { Song, StoredRecording } from "./types";
+import type { CoverConfig, Song, StoredRecording } from "./types";
 import { normalizeSong } from "./migrate";
 import { referencedKeys } from "./versions";
 
@@ -68,4 +68,12 @@ export async function cleanupBlobs(song: Song): Promise<number> {
   const stale = (await songKeys(song.id)).filter((k) => !keep.has(String(k)));
   if (stale.length) await db.recordings.bulkDelete(stale);
   return stale.length;
+}
+
+/** Attach a cover to a song, storing a freshly uploaded picture under its own key. */
+export async function withCover(song: Song, cover: CoverConfig, newImage: Blob | null): Promise<Song> {
+  if (!newImage) return { ...song, cover };
+  const key = newRecordingKey(song.id, "cover");
+  await putBlob(key, newImage);
+  return { ...song, cover: { ...cover, imageKey: key } };
 }
