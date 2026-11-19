@@ -1,0 +1,381 @@
+// src/components/Studio.tsx — the song page: recorder, melody editor + transport, instrument shelf,
+// and tabs for arrangement, an extra hummed layer and lyrics. Also save + export.
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ArrowLeft, Download, FileAudio, FileMusic, Loader2, Minus, Mic2, Play, Plus, Redo2, Repeat, RotateCcw, Square, Trash2, Undo2,
+  Wand2, ZoomIn, ZoomOut, Heart, ChevronDown,
+} from "lucide-react";
+import { useSong } from "../state/useSong";
+import { player, previewNote, renderSong } from "../audio/player";
+import { decodeArrayBuffer, getInstrument } from "../audio/instruments";
+import { extensionFor, toMono } from "../audio/recorder";
+import { quantize, transcribe } from "../audio/transcribe";
+import { deleteRecording, getRecording, putRecording } from "../lib/db";
+import { audioBufferToWav, download, safeName, songToMidi } from "../lib/exporters";
+import { PROGRESSIONS, detectKey, keyName, scoreProgression } from "../lib/theory";
+import type { Arrangement, Note, Song } from "../lib/types";
+import RecorderDeck from "./RecorderDeck";
+import PianoRoll from "./PianoRoll";
+import InstrumentPicker from "./InstrumentPicker";
+import ArrangePanel from "./ArrangePanel";
+import LayerPanel from "./LayerPanel";
+import LyricsPanel from "./LyricsPanel";
+import { SectionTitle, Toaster, computePeaks, toast } from "./ui";
+
+type Tab = "arrange" | "layer" | "lyrics";
+
+/** After a new transcription: detect the key and pre-pick the chord progression that fits best. */
+function withBestChords(a: Arrangement, notes: Note[]): Arrangement {
+  const key = detectKey(notes);
+  const best = [...PROGRESSIONS].sort((x, y) => scoreProgression(y, key, notes) - scoreProgression(x, key, notes))[0];
+  return { ...a, key, progressionId: best.id };
+}
+
+const useNarrow = () => {
+  const [narrow, setNarrow] = useState(() => window.matchMedia("(max-width: 640px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    const on = () => setNarrow(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return narrow;
+};
+
+export default function Studio({ songId }: { songId: string }) {
+  const { song, update, undo, redo, saveState, saveNow, canUndo, canRedo, get } = useSong(songId);
+  const [leadBlob, setLeadBlob] = useState<Blob | null>(null);
+  const [layerBlob, setLayerBlob] = useState<Blob | null>(null);
+  const [voiceBuffer, setVoiceBuffer] = useState<AudioBuffer | null>(null);
+  const [layerInfo, setLayerInfo] = useState<{ peaks: number[]; duration: number; warning: string | null }>({ peaks: [], duration: 0, warning: null });
+  const [busy, setBusy] = useState<"lead" | "layer" | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [playhead, setPlayhead] = useState<number | null>(null);
+  const [loop, setLoop] = useState(false);
+  const [withVoice, setWithVoice] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(56);
+  const [snap, setSnap] = useState(0.25);
+  const [tab, setTab] = useState<Tab>("arrange");
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const narrow = useNarrow();
+
+  // load stored recordings
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const lead = await getRecording(songId, "lead");
+      if (lead && alive) {
+        setLeadBlob(lead.blob);
+        decodeArrayBuffer(await lead.blob.arrayBuffer()).then((b) => alive && setVoiceBuffer(b)).catch(() => {});
+      }
+      const layer = await getRecording(songId, "layer");
+      if (layer && alive) {
+        setLayerBlob(layer.blob);
+        decodeArrayBuffer(await layer.blob.arrayBuffer())
+          .then((b) => alive && setLayerInfo({ peaks: computePeaks(toMono(b)), duration: b.duration, warning: null }))
+          .catch(() => {});
+      }
+    })();
+    return () => { alive = false; player.stop(); };
+  }, [songId]);
+
+  // playback state + playhead
+  useEffect(() => player.subscribe(() => setPlaying(player.playing)), []);
+  useEffect(() => {
+    if (!playing) { setPlayhead(null); return; }
+    let raf = 0;
+    const tick = () => { setPlayhead(player.position()); raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing]);
+
+  const voiceInSync = !!song && song.bpm === song.transcribedBpm;
+  const playOpts = useRef({ loop, withVoice, voiceBuffer, voiceInSync });
+  playOpts.current = { loop, withVoice, voiceBuffer, voiceInSync };
+
+  const startPlayback = useCallback((from = 0) => {
+    const s = get();
+    if (!s) return;
+    const o = playOpts.current;
+    player.play(s, { from, loop: o.loop, voice: o.withVoice && o.voiceInSync ? o.voiceBuffer : null, onEnd: () => setPlayhead(null) });
+  }, [get]);
+
+  // edits while playing restart playback from the current spot, so you hear changes immediately
+  const restartTimer = useRef<number | undefined>(undefined);
+  const refreshPlayback = useCallback(() => {
+    if (!player.playing) return;
+    window.clearTimeout(restartTimer.current);
+    restartTimer.current = window.setTimeout(() => { if (player.playing) startPlayback(player.position()); }, 120);
+  }, [startPlayback]);
+
+  const edit = useCallback((fn: (s: Song) => Song, undoable = true) => { update(fn, { undoable }); refreshPlayback(); }, [update, refreshPlayback]);
+  const setNotes = useCallback((notes: Note[]) => edit((s) => ({ ...s, notes })), [edit]);
+
+  // recording → notes
+  const processCapture = useCallback(async (blob: Blob, part: "lead" | "layer") => {
+    player.stop();
+    setBusy(part);
+    try {
+      const buf = await decodeArrayBuffer(await blob.arrayBuffer());
+      const mono = toMono(buf);
+      const s = get()!;
+      const r = transcribe(mono, buf.sampleRate, s.bpm);
+      await putRecording(s.id, part, blob);
+      if (part === "lead") {
+        setLeadBlob(blob);
+        setVoiceBuffer(buf);
+        edit((x) => ({
+          ...x, notes: r.notes, originalNotes: r.notes, durationSec: r.durationSec, peaks: computePeaks(mono), hasRecording: true,
+          recordingMime: blob.type || null, transcriptionWarning: r.quality.warning, transcribedBpm: x.bpm,
+          arrangement: r.notes.length ? withBestChords(x.arrangement, r.notes) : x.arrangement,
+        }));
+        toast(r.notes.length ? `found ${r.notes.length} notes ♪` : "no clear notes found");
+      } else {
+        setLayerBlob(blob);
+        setLayerInfo({ peaks: computePeaks(mono), duration: r.durationSec, warning: r.quality.warning });
+        edit((x) => ({ ...x, layer: { notes: r.notes, originalNotes: r.notes, instrument: x.layer?.instrument ?? "bells", offset: 0, hasRecording: true } }));
+        if (r.notes.length) toast(`layer added: ${r.notes.length} notes`);
+      }
+    } catch (e) {
+      console.error(e);
+      toast("couldn't read that audio — try another recording");
+    } finally {
+      setBusy(null);
+    }
+  }, [edit, get]);
+
+  // keyboard shortcuts
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest("input, textarea, select, [contenteditable]")) return;
+      const s = get();
+      if (!s) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); if (e.shiftKey) redo(); else undo(); refreshPlayback(); return; }
+      if (e.code === "Space" && !t.closest("button")) { e.preventDefault(); if (player.playing) player.stop(); else startPlayback(); return; }
+      if (!selected) return;
+      const n = s.notes.find((x) => x.id === selected);
+      if (!n) return;
+      const step = snap || 0.25;
+      const move = (p: Partial<Note>) => { e.preventDefault(); setNotes(s.notes.map((x) => (x.id === n.id ? { ...x, ...p } : x))); };
+      if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); setNotes(s.notes.filter((x) => x.id !== n.id)); setSelected(null); }
+      else if (e.key === "ArrowUp") { move({ midi: n.midi + 1 }); previewNote(s.leadInstrument, n.midi + 1, 0.3); }
+      else if (e.key === "ArrowDown") { move({ midi: n.midi - 1 }); previewNote(s.leadInstrument, n.midi - 1, 0.3); }
+      else if (e.key === "ArrowLeft") move({ start: Math.max(0, n.start - step) });
+      else if (e.key === "ArrowRight") move({ start: n.start + step });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [get, undo, redo, selected, snap, setNotes, startPlayback, refreshPlayback]);
+
+  if (song === undefined) return <p className="p-10 text-center font-hand text-2xl">rewinding the tape…</p>;
+  if (song === null) {
+    return (
+      <div className="p-10 text-center">
+        <p className="font-display text-2xl">this song isn't here anymore.</p>
+        <a href="#/" className="chip mt-4">back to my songs</a>
+      </div>
+    );
+  }
+
+  const hasNotes = song.notes.length > 0;
+  const name = safeName(song.title);
+
+  const doExport = async (kind: "original" | "midi" | "wav") => {
+    setExportOpen(false);
+    try {
+      if (kind === "original" && leadBlob) {
+        download(leadBlob, `${name}-original-hum.${extensionFor(leadBlob.type || song.recordingMime || "")}`);
+      } else if (kind === "midi") {
+        download(new Blob([songToMidi(song) as BlobPart], { type: "audio/midi" }), `${name}.mid`);
+      } else if (kind === "wav") {
+        player.stop();
+        setExporting("wav");
+        const buf = await renderSong(song);
+        download(audioBufferToWav(buf), `${name}.wav`);
+      }
+      toast("downloaded ♡");
+    } catch (e) {
+      console.error(e);
+      toast("export failed — sorry!");
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const changeArrangement = (a: Arrangement, opts: { live?: boolean } = {}) => {
+    update((s) => ({ ...s, arrangement: a }));
+    if (!opts.live) refreshPlayback();
+  };
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 pb-24 pt-5 sm:px-6">
+      {/* top bar */}
+      <header className="flex flex-wrap items-center gap-3">
+        <a href="#/" className="chip"><ArrowLeft size={14} /> my songs</a>
+        <a href="#/" className="font-display text-2xl font-semibold italic">hum<span className="text-rose-deep">.</span></a>
+        <input
+          value={song.title}
+          onChange={(e) => update((s) => ({ ...s, title: e.target.value }))}
+          onBlur={() => { if (!song.title.trim()) update((s) => ({ ...s, title: "untitled hum" })); }}
+          className="order-last min-w-0 flex-1 basis-full rounded-xl bg-transparent px-2 py-1 font-display text-2xl font-semibold tracking-tight hover:bg-white/70 focus:bg-white sm:order-none sm:basis-auto"
+          aria-label="song title"
+          maxLength={60}
+        />
+        <div className="ml-auto flex items-center gap-2">
+          <span className="hidden text-xs text-ink-soft sm:inline">{saveState === "saving" ? "saving…" : saveState === "error" ? "save failed" : "saved on this device"}</span>
+          <button className="key px-3 py-2 text-sm" onClick={async () => { await saveNow(); toast("kept safe ♡"); }} title="keep this little masterpiece">
+            <Heart size={14} className="text-rose-deep" fill="#DFA8C8" /> <span className="hidden sm:inline">keep this little masterpiece</span><span className="sm:hidden">save</span>
+          </button>
+          <div className="relative">
+            <button className="key px-3 py-2 text-sm" onClick={() => setExportOpen((o) => !o)} aria-expanded={exportOpen} disabled={!!exporting}>
+              {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} export <ChevronDown size={12} />
+            </button>
+            {exportOpen && (
+              <div className="panel absolute right-0 z-40 mt-2 w-64 p-2 animate-pop">
+                <ExportItem icon={<Mic2 size={16} />} title="original recording" sub={leadBlob ? `your untouched hum (.${extensionFor(leadBlob.type || "")})` : "record something first"} disabled={!leadBlob} onClick={() => doExport("original")} />
+                <ExportItem icon={<FileMusic size={16} />} title="MIDI" sub="every track, for GarageBand / any DAW" disabled={!hasNotes} onClick={() => doExport("midi")} />
+                <ExportItem icon={<FileAudio size={16} />} title="WAV" sub="the instrumental, rendered offline" disabled={!hasNotes} onClick={() => doExport("wav")} />
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+      {exporting && <p className="mt-2 text-right text-xs text-ink-soft">rendering your song… (sampled instruments may take a moment)</p>}
+
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12">
+        <div className="min-w-0 space-y-5 lg:col-span-8">
+          <RecorderDeck side="A" label={song.title || "untitled hum"} recording={leadBlob} peaks={song.peaks} durationSec={song.durationSec}
+            busy={busy === "lead"} onCaptured={(b) => processCapture(b, "lead")} />
+
+          {/* melody editor */}
+          <div className="panel p-4 sm:p-5">
+            <SectionTitle kicker={hasNotes ? "you made that!" : "the melody"} title={hasNotes ? "your melody, as notes" : "your notes will appear here"}>
+              {hasNotes && <span className="text-xs text-ink-soft">{song.notes.length} notes · sounds like {keyName(detectKey(song.notes))}</span>}
+            </SectionTitle>
+
+            {song.transcriptionWarning && (
+              <p className="mb-3 rounded-xl bg-butter px-3 py-2 text-sm" role="status">{song.transcriptionWarning}</p>
+            )}
+
+            {/* transport */}
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {playing ? (
+                <button className="key h-11 px-4" onClick={() => player.stop()} aria-label="stop"><Square size={15} fill="currentColor" /> stop</button>
+              ) : (
+                <button className="key h-11 px-4" onClick={() => startPlayback()} disabled={!hasNotes} aria-label="play" style={{ background: "#39343B", color: "#fff" }}>
+                  <Play size={15} fill="currentColor" /> play
+                </button>
+              )}
+              <button className="chip" aria-pressed={loop} onClick={() => { setLoop(!loop); playOpts.current.loop = !loop; refreshPlayback(); }} title="loop"><Repeat size={13} /> loop</button>
+              <button className="chip" aria-pressed={withVoice && voiceInSync} disabled={!voiceBuffer || !voiceInSync}
+                onClick={() => { setWithVoice(!withVoice); playOpts.current.withVoice = !withVoice; refreshPlayback(); }}
+                title={voiceInSync ? "play your original hum along with the instruments" : `voice blend only works at the original tempo (${song.transcribedBpm} bpm)`}>
+                <Mic2 size={13} /> + my voice
+              </button>
+              <span className="mx-1 hidden h-6 w-px bg-line sm:block" />
+              <label className="flex items-center gap-2 text-sm font-bold">
+                tempo
+                <input type="range" min={50} max={180} value={song.bpm} onChange={(e) => edit((s) => ({ ...s, bpm: +e.target.value }), false)} className="w-24 sm:w-28" aria-label="tempo" />
+                <span className="w-14 tabular-nums text-ink-soft">{song.bpm} bpm</span>
+              </label>
+              <span className="flex items-center gap-1 text-sm font-bold">
+                key
+                <button className="chip !px-2" onClick={() => edit((s) => ({ ...s, notes: s.notes.map((n) => ({ ...n, midi: n.midi - 1 })) }))} disabled={!hasNotes} aria-label="transpose down"><Minus size={12} /></button>
+                <button className="chip !px-2" onClick={() => edit((s) => ({ ...s, notes: s.notes.map((n) => ({ ...n, midi: n.midi + 1 })) }))} disabled={!hasNotes} aria-label="transpose up"><Plus size={12} /></button>
+              </span>
+            </div>
+
+            {/* editing tools */}
+            <div className="mb-3 flex flex-wrap items-center gap-1.5">
+              <button className="chip" onClick={() => { undo(); refreshPlayback(); }} disabled={!canUndo} aria-label="undo"><Undo2 size={13} /></button>
+              <button className="chip" onClick={() => { redo(); refreshPlayback(); }} disabled={!canRedo} aria-label="redo"><Redo2 size={13} /></button>
+              <button className="chip" onClick={() => {
+                const last = song.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
+                const sel = song.notes.find((n) => n.id === selected);
+                const n: Note = { id: crypto.randomUUID(), midi: sel?.midi ?? song.notes.at(-1)?.midi ?? 60, start: sel ? sel.start + sel.duration : last, duration: 1, velocity: 0.8 };
+                setNotes([...song.notes, n].sort((a, b) => a.start - b.start)); setSelected(n.id); previewNote(song.leadInstrument, n.midi);
+              }}><Plus size={13} /> note</button>
+              <button className="chip" disabled={!selected} onClick={() => { setNotes(song.notes.filter((n) => n.id !== selected)); setSelected(null); }}><Trash2 size={13} /> delete</button>
+              <button className="chip" disabled={!hasNotes} onClick={() => setNotes(quantize(song.notes, 0.25))} title="snap every note to the nearest 16th"><Wand2 size={13} /> tidy timing</button>
+              <button className="chip" disabled={!song.originalNotes.length} onClick={() => setNotes(song.originalNotes)} title="go back to exactly what was transcribed"><RotateCcw size={13} /> reset to original</button>
+              <span className="ml-auto flex items-center gap-1">
+                <select value={snap} onChange={(e) => setSnap(+e.target.value)} className="rounded-full border border-line bg-white px-2 py-1 text-xs font-bold" aria-label="snap">
+                  <option value={0}>snap: free</option>
+                  <option value={0.25}>snap: 1/16</option>
+                  <option value={0.5}>snap: 1/8</option>
+                  <option value={1}>snap: beat</option>
+                </select>
+                <button className="chip !px-2" onClick={() => setZoom((z) => Math.max(20, z - 12))} aria-label="zoom out"><ZoomOut size={13} /></button>
+                <button className="chip !px-2" onClick={() => setZoom((z) => Math.min(140, z + 12))} aria-label="zoom in"><ZoomIn size={13} /></button>
+              </span>
+            </div>
+
+            <PianoRoll
+              notes={song.notes}
+              ghostNotes={song.layer ? song.layer.notes.map((n) => ({ ...n, start: n.start + song.layer!.offset })) : []}
+              onCommit={setNotes}
+              onPreview={(m) => previewNote(song.leadInstrument, m, 0.4)}
+              playhead={playhead}
+              pxPerBeat={narrow ? Math.round(zoom * 0.7) : zoom}
+              snap={snap}
+              selectedId={selected}
+              onSelect={setSelected}
+              compact={narrow}
+            />
+            <p className="mt-2 text-[11px] text-ink-soft">
+              drag a note up/down for pitch, sideways for timing · drag its right edge to stretch · double-click empty space to add, a note to delete · arrows nudge · space plays
+            </p>
+          </div>
+        </div>
+
+        <aside className="min-w-0 lg:col-span-4">
+          <div className="lg:sticky lg:top-4">
+            <InstrumentPicker
+              selected={song.leadInstrument}
+              onSelect={(id) => edit((s) => ({ ...s, leadInstrument: id }), false)}
+              volume={song.arrangement.tracks.lead.volume}
+              onVolume={(v) => { player.setTrackVolume("lead", v); update((s) => ({ ...s, arrangement: { ...s.arrangement, tracks: { ...s.arrangement.tracks, lead: { ...s.arrangement.tracks.lead, volume: v } } } })); }}
+            />
+            <p className="mt-2 px-2 text-xs text-ink-soft">playing on <b>{getInstrument(song.leadInstrument).name}</b>. switching instruments never changes your notes.</p>
+          </div>
+        </aside>
+      </div>
+
+      {/* lower tabs */}
+      <nav className="mt-8 flex gap-2 overflow-x-auto" role="tablist">
+        {([["arrange", "arrange"], ["layer", "add another hum"], ["lyrics", "lyrics"]] as const).map(([id, label]) => (
+          <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+            className={`shrink-0 rounded-full px-4 py-2 text-sm font-extrabold transition ${tab === id ? "bg-ink text-white" : "bg-white/70 hover:bg-white"}`}>
+            {label}
+          </button>
+        ))}
+      </nav>
+      <div className="mt-3">
+        {tab === "arrange" && <ArrangePanel song={song} onChange={changeArrangement} />}
+        {tab === "layer" && (
+          <LayerPanel
+            song={song} recording={layerBlob} busy={busy === "layer"} warning={layerInfo.warning} peaks={layerInfo.peaks} durationSec={layerInfo.duration}
+            onCaptured={(b) => processCapture(b, "layer")}
+            onChange={(layer) => edit((s) => ({ ...s, layer }))}
+            onRemove={async () => { await deleteRecording(song.id, "layer"); setLayerBlob(null); setLayerInfo({ peaks: [], duration: 0, warning: null }); edit((s) => ({ ...s, layer: null })); }}
+          />
+        )}
+        {tab === "lyrics" && <LyricsPanel sections={song.lyrics} onChange={(lyrics) => update((s) => ({ ...s, lyrics }))} saveState={saveState} />}
+      </div>
+      <Toaster />
+    </div>
+  );
+}
+
+function ExportItem({ icon, title, sub, disabled, onClick }: { icon: React.ReactNode; title: string; sub: string; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} disabled={disabled} className="flex w-full items-start gap-3 rounded-xl px-3 py-2 text-left hover:bg-blush disabled:opacity-40 disabled:hover:bg-transparent">
+      <span className="mt-0.5">{icon}</span>
+      <span><span className="block text-sm font-extrabold">{title}</span><span className="block text-xs text-ink-soft">{sub}</span></span>
+    </button>
+  );
+}
