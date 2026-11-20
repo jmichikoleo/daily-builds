@@ -13,7 +13,13 @@ export interface ClaudeOptions {
 /** Tools that need an interactive answer Jarvis does not forward in v1. */
 const TERMINAL_ONLY_TOOLS = new Set(['AskUserQuestion', 'ExitPlanMode']);
 
-export function describeTool(name: string, input: Record<string, unknown>): string {
+/** Paths inside the project are shown relative to it, so they fit the small console. */
+export function shortPath(p: string, cwd?: string): string {
+  if (cwd && p.startsWith(cwd.endsWith('/') ? cwd : cwd + '/')) return p.slice(cwd.length).replace(/^\//, '');
+  return p;
+}
+
+export function describeTool(name: string, input: Record<string, unknown>, cwd?: string): string {
   const s = (v: unknown) => (typeof v === 'string' ? v : '');
   switch (name) {
     case 'Bash':
@@ -22,7 +28,7 @@ export function describeTool(name: string, input: Record<string, unknown>): stri
     case 'Write':
     case 'Read':
     case 'NotebookEdit':
-      return `${name} ${s(input.file_path) || s(input.notebook_path)}`;
+      return `${name} ${shortPath(s(input.file_path) || s(input.notebook_path), cwd)}`;
     case 'WebFetch':
       return `WebFetch ${s(input.url)}`;
     case 'WebSearch':
@@ -66,7 +72,7 @@ export function createClaudeAdapter(opts: ClaudeOptions): AgentAdapter {
           sink.notice('warn', `claude wanted ${toolName}, which needs an answer jarvis can't pass along yet. pick this up in a terminal with claude --resume if you need it`);
           return { behavior: 'deny', message: `The user is on the Jarvis voice console, which cannot answer ${toolName}. Proceed without it or tell the user to continue in a terminal.` };
         }
-        const title = ctx.title ?? describeTool(toolName, toolInput);
+        const title = ctx.title ?? describeTool(toolName, toolInput, input.cwd);
         const detailParts = [ctx.description, ctx.decisionReason ? `reason. ${ctx.decisionReason}` : undefined, ctx.blockedPath ? `path ${ctx.blockedPath}` : undefined];
         if (toolName === 'Edit' && typeof toolInput.old_string === 'string')
           detailParts.push(`- ${String(toolInput.old_string).slice(0, 800)}\n+ ${String(toolInput.new_string ?? '').slice(0, 800)}`);
@@ -74,7 +80,7 @@ export function createClaudeAdapter(opts: ClaudeOptions): AgentAdapter {
         else detailParts.push(String(toolInput.command ?? ''));
         const decision = await sink.approval({
           kind: toolName === 'Bash' ? 'command' : /Edit|Write/.test(toolName) ? 'file' : 'tool',
-          title: describeTool(toolName, toolInput) || title,
+          title: describeTool(toolName, toolInput, input.cwd) || title,
           detail: detailParts.filter(Boolean).join('\n'),
         });
         if (decision === 'allow') return { behavior: 'allow', updatedInput: toolInput };
@@ -124,7 +130,7 @@ export function createClaudeAdapter(opts: ClaudeOptions): AgentAdapter {
               if (m.error) lastError = m.error;
               if (m.parent_tool_use_id) continue;
               for (const block of m.message?.content ?? []) {
-                if (block.type === 'tool_use') sink.progress(describeTool(block.name, block.input ?? {}));
+                if (block.type === 'tool_use') sink.progress(describeTool(block.name, block.input ?? {}, input.cwd));
                 else if (block.type === 'text' && !streamedText && block.text) {
                   if (wroteSomething) sink.delta('\n\n');
                   sink.delta(block.text);
@@ -136,7 +142,7 @@ export function createClaudeAdapter(opts: ClaudeOptions): AgentAdapter {
               sink.progress(`claude code session ...${m.session_id?.slice(-8) ?? ''} ready${m.permissionMode ? ` (${m.permissionMode} mode)` : ''}`);
             } else if (m.type === 'result') {
               if (cancelled) return { status: 'cancelled' };
-              for (const d of m.permission_denials ?? []) sink.notice('info', `denied ${describeTool(d.tool_name, d.tool_input ?? {})}`);
+              for (const d of m.permission_denials ?? []) sink.notice('info', `denied ${describeTool(d.tool_name, d.tool_input ?? {}, input.cwd)}`);
               if (m.is_error || m.subtype !== 'success') {
                 const raw = [lastError, ...(m.errors ?? []), m.result].filter(Boolean).join(' · ') || m.subtype;
                 return { status: 'error', error: friendlyError(raw) };

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, test } from 'node:test';
+import { describeTool } from '../src/server/agents/claude.ts';
 import { createCodexAdapter } from '../src/server/agents/codex.ts';
 import { createMockAdapter } from '../src/server/agents/mock.ts';
 import type { ApprovalRequest, TurnSink } from '../src/server/agents/types.ts';
@@ -93,6 +94,14 @@ describe('codex adapter (against a fake app-server)', () => {
     assert.equal((await missing.check()).ok, false);
     const r = await missing.startTurn({ cwd: dir, prompt: 'hi' }, recordingSink().sink).done;
     assert.match((r as any).error, /not found/);
+  });
+});
+
+describe('claude tool labels', () => {
+  test('paths inside the project are shown relative to it', () => {
+    assert.equal(describeTool('Edit', { file_path: '/p/app/src/a.ts' }, '/p/app'), 'Edit src/a.ts');
+    assert.equal(describeTool('Write', { file_path: '/elsewhere/x.txt' }, '/p/app'), 'Write /elsewhere/x.txt');
+    assert.equal(describeTool('Read', { file_path: '/p/application/a.ts' }, '/p/app'), 'Read /p/application/a.ts');
   });
 });
 
