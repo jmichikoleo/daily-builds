@@ -122,7 +122,11 @@ async function publish() {
 
   const deploy = await run("npx", ["--yes", "netlify-cli", "deploy", "--prod", "--no-build", "--dir", "dist", "--site", NETLIFY_SITE]);
   steps.push({ step: "netlify", ok: deploy.code === 0 });
-  if (deploy.code !== 0) return { ok: false, steps, error: "netlify didn't take it", log: deploy.out.slice(-1500) };
+  if (deploy.code !== 0) {
+    // pass on netlify's own reason when it gives one, like running out of credits
+    const reason = deploy.out.match(/"error":\s*"([^"]+)"/)?.[1];
+    return { ok: false, steps, error: reason ? `netlify said “${reason}”` : "netlify didn't take it", log: deploy.out.slice(-1500) };
+  }
   await writeFile(STATE_FILE, await recipesHash());
 
   // save the recipe file and photos to github. only these paths, nothing else in the repo.
