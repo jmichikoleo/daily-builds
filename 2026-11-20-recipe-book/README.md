@@ -21,7 +21,7 @@ runs the tests and makes the production build in `dist/`. the build is plain sta
 
 the studio is where i add, edit and delete recipes. it runs on my mac mini all the time and only opens on devices signed in to my tailscale, so nobody else can get in.
 
-https://josephas-mac-mini.tailb457cb.ts.net:8490
+open the mac mini's tailscale address on port 8490.
 
 - add. tap + new recipe, fill it in, tap add recipe
 - edit. open a recipe and tap edit
