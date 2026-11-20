@@ -12,6 +12,6 @@
 
 261119 -- One Minute Arcade -- Vite + React + TypeScript microgame arcade: six weird little games, sixty seconds each, with records, surprise me, and touch controls.
 
-261120 -- Jarvis -- Node + TypeScript click-to-talk console for Claude Code and Codex. click a glowing ring, say what you want, and the agent works in the project you picked and streams back, over a private Tailscale link.
+261120 -- Jarvis -- Node + TypeScript click-to-talk console for Claude Code and Codex. say what you want, and the agent works in the project you picked and streams back, over a private Tailscale link.
 
 261120 -- mochi's recipe book -- Vite + vanilla JS recipe site in strawberry pink and butter yellow. a recipe library, shareable recipe pages, search that reads 찹쌀가루, and favorites saved on your phone.
