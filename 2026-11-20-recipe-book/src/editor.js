@@ -3,12 +3,13 @@
 // because saving writes straight into src/recipes.js on your computer.
 
 import { slugify } from "./serialize.js";
+import { ART, artKey } from "./art.js";
 
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 export async function saveRecipes(recipes, categories) {
-  const res = await fetch("/__recipes", {
+  const res = await fetch("/__studio/recipes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ recipes, categories }),
@@ -33,6 +34,91 @@ function stepRow(s = "", n = 1) {
       <textarea aria-label="step" name="step" rows="2" placeholder="what to do">${esc(s)}</textarea>
       <button type="button" class="icon-btn" data-remove aria-label="remove this step">×</button>
     </li>`;
+}
+
+// phone photos are huge, so shrink to 1600px wide jpg before sending
+async function shrink(file) {
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    return await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+  } catch {
+    return file;
+  }
+}
+
+async function uploadPhoto(file, slug) {
+  const blob = await shrink(file);
+  const res = await fetch(`/__studio/photo?slug=${encodeURIComponent(slug || "photo")}`, {
+    method: "POST",
+    headers: { "Content-Type": blob.type || file.type },
+    body: blob,
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || "upload failed");
+  return body.photo;
+}
+
+// the publish page
+export function renderPublish(main) {
+  main.innerHTML = `
+    <div class="page-head"><h1 tabindex="-1">Publish</h1></div>
+    <div class="card publish">
+      <p class="lead" data-state>checking...</p>
+      <p class="hint">publish builds the site, puts it on mochis-recipe-book.netlify.app and saves your recipes and photos to github. it takes about a minute.</p>
+      <button type="button" class="btn primary" data-publish>Publish now</button>
+      <div class="publish-result" role="status" data-result></div>
+    </div>`;
+  const state = main.querySelector("[data-state]");
+  const btn = main.querySelector("[data-publish]");
+  const result = main.querySelector("[data-result]");
+  fetch("/__studio/status")
+    .then((r) => r.json())
+    .then((s) => {
+      state.textContent = s.publishing
+        ? "publishing right now..."
+        : s.unpublished
+          ? "you have changes that aren't on the live site yet"
+          : "the live site is up to date";
+    })
+    .catch(() => (state.textContent = "couldn't check, but you can still publish"));
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    btn.textContent = "publishing...";
+    result.textContent = "";
+    try {
+      const res = await fetch("/__studio/publish", { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "something went wrong");
+      state.textContent = "the live site is up to date";
+      result.innerHTML = `<p>done. it's live at <a href="https://mochis-recipe-book.netlify.app" target="_blank" rel="noopener">mochis-recipe-book.netlify.app</a></p><p class="hint">${
+        body.github === "failed"
+          ? "the site is updated but saving to github didn't work. ask claude to look at it"
+          : body.github === "saved"
+            ? "recipes saved to github too"
+            : "github already had everything"
+      }</p>`;
+      document.dispatchEvent(new Event("studio:published"));
+    } catch (err) {
+      result.innerHTML = `<p class="ed-error">${esc(err.message)}. nothing changed on the live site</p>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Publish now";
+    }
+  });
+  return "Publish";
+}
+
+export async function hasUnpublished() {
+  try {
+    return (await (await fetch("/__studio/status")).json()).unpublished;
+  } catch {
+    return false;
+  }
 }
 
 // vite reloads the page when recipes.js changes. this is the backup if nothing changed.
@@ -70,11 +156,38 @@ export function renderEditor(main, { recipe, recipes, categories }) {
         <label class="wide"><span class="ed-label">batch note <span class="opt">optional</span></span>
           <input name="note" value="${esc(r.note)}" placeholder="a note to future you, shown in yellow" />
         </label>
-        <label class="wide"><span class="ed-label">photo <span class="opt">optional</span></span>
-          <input name="photo" value="${esc(r.photo)}" placeholder="photos/my-photo.jpg" />
-          <small>put the file in public/photos first</small>
-        </label>
       </div>
+
+      <fieldset class="ed-picture">
+        <legend>Picture</legend>
+        <p class="hint">pick a drawing. a photo of your own takes its place if you add one</p>
+        <div class="art-pick" role="radiogroup" aria-label="drawing">
+          <label class="art-opt">
+            <input type="radio" name="art" value="" ${r.art ? "" : "checked"} />
+            <span class="art-box" data-auto-art>${ART[artKey({ category: r.category })].svg}</span>
+            <span>auto</span>
+          </label>
+          ${Object.entries(ART)
+            .map(
+              ([key, a]) => `
+          <label class="art-opt">
+            <input type="radio" name="art" value="${key}" ${r.art === key ? "checked" : ""} />
+            <span class="art-box">${a.svg}</span>
+            <span>${a.label}</span>
+          </label>`
+            )
+            .join("")}
+        </div>
+        <input type="hidden" name="photo" value="${esc(r.photo)}" />
+        <div class="photo-row">
+          <img class="photo-preview" alt="your photo" data-photo-preview ${r.photo ? `src="./${esc(r.photo)}"` : "hidden"} />
+          <label class="btn small file-btn">
+            <input type="file" accept="image/jpeg,image/png,image/webp" data-photo-file />
+            <span data-photo-label>${r.photo ? "change photo" : "+ add a photo"}</span>
+          </label>
+          <button type="button" class="btn small" data-photo-remove ${r.photo ? "" : "hidden"}>remove photo</button>
+        </div>
+      </fieldset>
 
       <div class="ed-checks">
         <label class="check"><input type="checkbox" name="featured" ${r.featured ? "checked" : ""} /> show in the big pink tile</label>
@@ -109,6 +222,38 @@ export function renderEditor(main, { recipe, recipes, categories }) {
   const errorBox = form.querySelector("[data-error]");
   const slugInput = form.elements.slug;
   const preview = form.querySelector("[data-slug-preview]");
+
+  // picture. the auto drawing follows the category
+  const autoArt = form.querySelector("[data-auto-art]");
+  form.elements.category.addEventListener("input", () => {
+    autoArt.innerHTML = ART[artKey({ category: form.elements.category.value })].svg;
+  });
+  const photoInput = form.elements.photo;
+  const photoPreview = form.querySelector("[data-photo-preview]");
+  const photoLabel = form.querySelector("[data-photo-label]");
+  const photoRemove = form.querySelector("[data-photo-remove]");
+  const setPhoto = (path) => {
+    photoInput.value = path;
+    photoPreview.hidden = !path;
+    if (path) photoPreview.src = `./${path}`;
+    photoRemove.hidden = !path;
+    photoLabel.textContent = path ? "change photo" : "+ add a photo";
+  };
+  form.querySelector("[data-photo-file]").addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    photoLabel.textContent = "uploading...";
+    try {
+      const path = await uploadPhoto(file, slugify(form.elements.slug.value || form.elements.title.value));
+      setPhoto(path);
+      showError("");
+    } catch (err) {
+      setPhoto(photoInput.value);
+      showError(`couldn't add the photo. ${err.message}`);
+    }
+  });
+  photoRemove.addEventListener("click", () => setPhoto(""));
 
   const renumber = () =>
     steps.querySelectorAll(".ed-num").forEach((el, i) => {
@@ -153,6 +298,7 @@ export function renderEditor(main, { recipe, recipes, categories }) {
       subtitle: f.subtitle.value,
       note: f.note.value,
       photo: f.photo.value,
+      art: f.art.value,
       featured: f.featured.checked,
       draft: f.draft.checked,
       ingredients: [...ings.children].map((li) => ({

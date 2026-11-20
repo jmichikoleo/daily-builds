@@ -3,7 +3,7 @@
 
 const HEADER = `// src/recipes.js
 // this is the only file you need to touch to add or change a recipe.
-// you can also use the editor while \`npm run dev\` is running, it rewrites this file for you.
+// the studio rewrites this file for you, see the readme.
 //
 // each recipe looks like this
 //
@@ -16,6 +16,7 @@ const HEADER = `// src/recipes.js
 //     featured: true,                  // optional, shows it in the big pink tile on the home page
 //     draft: true,                     // optional, marks it as not finished yet
 //     photo: "photos/brownies.jpg",    // optional, put the file in public/photos
+//     art: "chocolate",                // optional drawing. chocolate, whisk, pot, ricebowl, bread or plate
 //     ingredients: [
 //       { amount: "220 g", item: "chocolate" },
 //       { amount: "", item: "salt" },  // leave amount empty if you don't know it yet
@@ -36,7 +37,7 @@ export function cleanRecipe(r) {
     title: String(r.title ?? "").trim(),
     category: String(r.category ?? "").trim(),
   };
-  for (const key of ["subtitle", "note", "photo"]) {
+  for (const key of ["subtitle", "note", "photo", "art"]) {
     const v = String(r[key] ?? "").trim();
     if (v) out[key] = v;
   }
@@ -51,7 +52,7 @@ export function cleanRecipe(r) {
 
 function recipeText(r) {
   const lines = ["  {"];
-  for (const key of ["slug", "title", "category", "subtitle", "note", "photo"]) {
+  for (const key of ["slug", "title", "category", "subtitle", "note", "photo", "art"]) {
     if (r[key] !== undefined) lines.push(`    ${key}: ${str(r[key])},`);
   }
   if (r.featured) lines.push("    featured: true,");

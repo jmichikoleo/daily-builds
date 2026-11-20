@@ -1,6 +1,6 @@
 // src/recipes.js
 // this is the only file you need to touch to add or change a recipe.
-// you can also use the editor while `npm run dev` is running, it rewrites this file for you.
+// the studio rewrites this file for you, see the readme.
 //
 // each recipe looks like this
 //
@@ -13,6 +13,7 @@
 //     featured: true,                  // optional, shows it in the big pink tile on the home page
 //     draft: true,                     // optional, marks it as not finished yet
 //     photo: "photos/brownies.jpg",    // optional, put the file in public/photos
+//     art: "chocolate",                // optional drawing. chocolate, whisk, pot, ricebowl, bread or plate
 //     ingredients: [
 //       { amount: "220 g", item: "chocolate" },
 //       { amount: "", item: "salt" },  // leave amount empty if you don't know it yet
@@ -33,6 +34,7 @@ export const recipes = [
     category: "Sweet",
     subtitle: "The 220 g batch",
     note: "Sized for the 220 g of chocolate I had.",
+    art: "chocolate",
     featured: true,
     draft: true,
     ingredients: [

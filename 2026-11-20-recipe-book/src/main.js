@@ -4,7 +4,7 @@
 
 import "./style.css";
 import { recipes, categories } from "./recipes.js";
-import { chocolateSvg } from "./chocolate.js";
+import { artFor } from "./art.js";
 import {
   search,
   groupByCategory,
@@ -93,7 +93,7 @@ function featureTile(r) {
   return `
     <a class="feature" href="${recipeHref(r)}">
       <span class="ribbon ribbon-butter" aria-hidden="true"></span>
-      <span class="feature-art">${photo ? `<img src="${esc(photo)}" alt="" />` : chocolateSvg}</span>
+      <span class="feature-art">${photo ? `<img src="${esc(photo)}" alt="" />` : artFor(r)}</span>
       <span class="feature-text">
         <span class="feature-kicker">${esc(r.category)}</span>
         <span class="feature-title">${esc(r.title)}</span>
@@ -229,7 +229,7 @@ function recipeView(slug) {
           }
         </section>
       </div>
-      ${photo ? "" : `<div class="card-art" aria-hidden="true">${chocolateSvg}</div>`}
+      ${photo ? "" : `<div class="card-art" aria-hidden="true">${artFor(r)}</div>`}
     </article>`;
   main.querySelector("[data-save]").addEventListener("click", () => {
     favorites = toggleFavorite(storage, r.slug);
@@ -269,6 +269,9 @@ async function route() {
     title = await editorView(null);
   } else if (import.meta.env.DEV && section === "edit" && slug) {
     title = await editorView(decodeURIComponent(slug));
+  } else if (import.meta.env.DEV && section === "publish") {
+    const { renderPublish } = await import("./editor.js");
+    title = renderPublish(main);
   } else if (section === "recipe" && slug) {
     title = recipeView(decodeURIComponent(slug));
   } else if (section === "recipes") {
@@ -280,7 +283,7 @@ async function route() {
   } else {
     title = homeView();
   }
-  if (section === "new") nav = "new";
+  if (section === "new" || section === "publish") nav = section;
   document.title = title === "Recipe book" ? SITE : `${title} · ${SITE}`;
   document.querySelectorAll("[data-nav]").forEach((a) => {
     if (a.dataset.nav === nav) a.setAttribute("aria-current", "page");
@@ -298,7 +301,18 @@ window.addEventListener("storage", () => {
   favorites = readFavorites(storage);
 });
 if (import.meta.env.DEV) {
-  document.querySelector("nav").insertAdjacentHTML("beforeend", `<a href="#/new" data-nav="new" class="nav-new">+ New recipe</a>`);
+  document
+    .querySelector("nav")
+    .insertAdjacentHTML(
+      "beforeend",
+      `<a href="#/new" data-nav="new" class="nav-new">+ New recipe</a><a href="#/publish" data-nav="publish" class="nav-publish">Publish<span class="dot" hidden aria-label="unpublished changes"></span></a>`
+    );
+  const markUnpublished = async () => {
+    const { hasUnpublished } = await import("./editor.js");
+    document.querySelector(".nav-publish .dot").hidden = !(await hasUnpublished());
+  };
+  markUnpublished();
+  document.addEventListener("studio:published", markUnpublished);
 }
 window.addEventListener("hashchange", route);
 route();

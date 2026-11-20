@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview --port 5281 --strictPort",
     "test": "vitest run",
-    "check": "npm test && npm run build"
+    "check": "npm test && npm run build",
+    "studio": "STUDIO_PUBLIC_PORT=8490 vite --host 127.0.0.1 --port 4290 --strictPort"
   },
   "devDependencies": {
     "vite": "^8.3.8",

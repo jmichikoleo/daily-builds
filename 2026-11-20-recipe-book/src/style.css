@@ -885,3 +885,129 @@ h1 {
     margin-left: 0;
   }
 }
+
+/* studio picture picker and publish */
+
+.art-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 10px;
+  margin: 10px 0 16px;
+}
+
+.art-opt {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 6px;
+  font-size: 14px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--ivory);
+  cursor: pointer;
+  text-align: center;
+}
+
+.art-opt input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  cursor: pointer;
+}
+
+.art-box {
+  display: block;
+  width: 100%;
+  color: var(--cocoa);
+}
+
+.art-opt:has(input:checked) {
+  background: var(--strawberry);
+  border-color: var(--rose);
+  color: var(--cocoa);
+}
+
+.art-opt:has(input:focus-visible) {
+  outline: 2px solid var(--rose);
+  outline-offset: 2px;
+}
+
+.photo-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.photo-preview {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-strong);
+}
+
+.photo-preview[hidden],
+.photo-row [hidden] {
+  display: none;
+}
+
+.file-btn {
+  position: relative;
+  margin-top: 0;
+}
+
+.file-btn input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.file-btn:has(input:focus-visible) {
+  outline: 2px solid var(--rose);
+  outline-offset: 3px;
+}
+
+.photo-row .btn {
+  margin-top: 0;
+}
+
+.nav-publish .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--rose);
+}
+
+.nav-publish .dot[hidden] {
+  display: none;
+}
+
+.publish {
+  max-width: 640px;
+}
+
+.publish .lead {
+  font-family: var(--serif);
+  font-size: 24px;
+  margin: 0 0 8px;
+}
+
+.publish .hint {
+  margin-bottom: 8px;
+}
+
+.publish-result {
+  margin-top: 16px;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
