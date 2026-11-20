@@ -9,3 +9,5 @@
 261103 -- Your Year in Stamps -- Next.js + TypeScript travel passport collage maker: collect illustrated SVG stamps from 31k real places and export Instagram-ready PNGs.
 
 261119 -- hum. -- Vite + React + Tone.js songwriting studio: hum a melody, see it as editable notes, play it on 16 instruments, add chords/bass/drums, lyrics, and export MIDI/WAV.
+
+261119 -- One Minute Arcade -- Vite + React + TypeScript microgame arcade: six weird little games, sixty seconds each, with records, surprise me, and touch controls.
