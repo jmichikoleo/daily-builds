@@ -27,7 +27,7 @@ describe("studio access", () => {
   const req = (host, origin) => ({ headers: { host, origin } });
   it("lets in this computer and the tailnet, from the studio page only", () => {
     expect(allowed(req("localhost:4290", "http://localhost:4290"))).toBe(true);
-    expect(allowed(req("josephas-mac-mini.tailb457cb.ts.net:8490", "https://josephas-mac-mini.tailb457cb.ts.net:8490"))).toBe(true);
+    expect(allowed(req("my-mac.tail1234.ts.net:8490", "https://my-mac.tail1234.ts.net:8490"))).toBe(true);
   });
   it("allows a same-site read that has no origin header", () => {
     expect(allowed({ headers: { host: "localhost:4290", "sec-fetch-site": "same-origin" } })).toBe(true);
