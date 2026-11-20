@@ -24,7 +24,7 @@ then open http://localhost:5280
 npm run check
 ```
 
-runs the tests and makes the production build in `dist/`. the build is plain static files, so `dist/` can go on netlify or any static host as is.
+runs the tests and makes the production build in `dist/`. the build is plain static files, so `dist/` can go on any static host as is.
 
 ## the studio
 
@@ -38,7 +38,9 @@ open the mac mini's tailscale address on port 8490.
 - edit. open a recipe and tap edit
 - delete. open a recipe and tap delete, it asks first
 - picture. pick a drawing, or add a photo from your phone. photos get shrunk before they upload
-- publish. tap publish, then publish now. it builds the site, puts it on mochis-recipe-book.netlify.app and saves the recipes and photos to github. a dot next to publish means there are changes that aren't live yet
+- publish. tap publish, then publish now. it builds the site, puts it on github pages at jmichikoleo.github.io/mochis-recipe-book and saves the recipes and photos to github. a dot next to publish means there are changes that aren't live yet. the live site updates about a minute after it says done
+
+the built site lives in its own repo, jmichikoleo/mochis-recipe-book, and publish expects a clone of it at ~/Developer/mochis-recipe-book-site
 
 the live site never has any of these buttons.
 

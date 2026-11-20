@@ -1,12 +1,13 @@
 // studio/plugin.js
 // the studio's little backend. it only runs inside the vite dev server (npm run dev or npm run studio),
-// never on netlify. it can
+// never on the live site. it can
 //   POST /__studio/recipes   save the recipe list into src/recipes.js
 //   POST /__studio/photo     save a photo into public/photos
 //   GET  /__studio/status    say whether there are changes that aren't on the live site yet
-//   POST /__studio/publish   build the site, put it on netlify, save the recipes to github
+//   POST /__studio/publish   build the site, put it on github pages, save the recipes to github
 
-import { writeFile, rename, readFile, mkdir, readdir, unlink } from "node:fs/promises";
+import { writeFile, rename, readFile, mkdir, readdir, unlink, rm, cp } from "node:fs/promises";
+import { homedir } from "node:os";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -18,7 +19,9 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const RECIPES_FILE = join(ROOT, "src/recipes.js");
 const PHOTOS_DIR = join(ROOT, "public/photos");
 const STATE_FILE = join(ROOT, ".studio-published");
-const NETLIFY_SITE = "mochis-recipe-book";
+// the live site is a separate repo that only holds the built files. github pages serves it.
+const SITE_DIR = process.env.STUDIO_SITE_DIR || join(homedir(), "Developer/mochis-recipe-book-site");
+const SITE_REPO = /github\.com[/:]jmichikoleo\/mochis-recipe-book(\.git)?$/;
 
 // this computer, or a device on your own tailscale network
 const ALLOWED_HOST = /^(localhost|127\.0\.0\.1|\[::1\]|[a-z0-9-]+\.[a-z0-9-]+\.ts\.net)(:\d+)?$/i;
@@ -93,6 +96,31 @@ function refresh(server) {
   (server.environments?.client?.hot ?? server.ws).send({ type: "full-reload" });
 }
 
+// copy dist into the site repo and push it. github pages picks it up in about a minute.
+async function deployPages() {
+  const origin = (await run("git", ["remote", "get-url", "origin"], SITE_DIR)).out.trim();
+  if (!SITE_REPO.test(origin)) {
+    return { ok: false, error: `couldn't find the site repo at ${SITE_DIR}` };
+  }
+  for (const f of await readdir(SITE_DIR)) {
+    if (f !== ".git") await rm(join(SITE_DIR, f), { recursive: true, force: true });
+  }
+  await cp(join(ROOT, "dist"), SITE_DIR, { recursive: true });
+  await writeFile(join(SITE_DIR, ".nojekyll"), "");
+  await run("git", ["add", "-A"], SITE_DIR);
+  const same = await run("git", ["diff", "--cached", "--quiet"], SITE_DIR);
+  if (same.code === 0) return { ok: true };
+  const commit = await run("git", ["commit", "-m", "site: publish from the studio"], SITE_DIR);
+  if (commit.code !== 0) return { ok: false, error: "couldn't save the new site", log: commit.out.slice(-800) };
+  let push = await run("git", ["push"], SITE_DIR);
+  if (push.code !== 0) {
+    await run("git", ["pull", "--rebase"], SITE_DIR);
+    push = await run("git", ["push"], SITE_DIR);
+  }
+  if (push.code !== 0) return { ok: false, error: "github didn't take the new site", log: push.out.slice(-800) };
+  return { ok: true };
+}
+
 let publishing = false;
 
 // photos you uploaded and then took off a recipe shouldn't go online
@@ -120,13 +148,9 @@ async function publish() {
     }
   }
 
-  const deploy = await run("npx", ["--yes", "netlify-cli", "deploy", "--prod", "--no-build", "--dir", "dist", "--site", NETLIFY_SITE]);
-  steps.push({ step: "netlify", ok: deploy.code === 0 });
-  if (deploy.code !== 0) {
-    // pass on netlify's own reason when it gives one, like running out of credits
-    const reason = deploy.out.match(/"error":\s*"([^"]+)"/)?.[1];
-    return { ok: false, steps, error: reason ? `netlify said “${reason}”` : "netlify didn't take it", log: deploy.out.slice(-1500) };
-  }
+  const deploy = await deployPages();
+  steps.push({ step: "github pages", ok: deploy.ok });
+  if (!deploy.ok) return { ok: false, steps, error: deploy.error, log: deploy.log };
   await writeFile(STATE_FILE, await recipesHash());
 
   // save the recipe file and photos to github. only these paths, nothing else in the repo.

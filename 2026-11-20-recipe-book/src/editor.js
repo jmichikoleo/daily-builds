@@ -72,7 +72,7 @@ export function renderPublish(main) {
     <div class="page-head"><h1 tabindex="-1">Publish</h1></div>
     <div class="card publish">
       <p class="lead" data-state>checking...</p>
-      <p class="hint">publish builds the site, puts it on mochis-recipe-book.netlify.app and saves your recipes and photos to github. it takes about a minute.</p>
+      <p class="hint">publish builds the site, puts it on github pages and saves your recipes and photos to github. the live site updates about a minute after it says done.</p>
       <button type="button" class="btn primary" data-publish>Publish now</button>
       <div class="publish-result" role="status" data-result></div>
     </div>`;
@@ -98,7 +98,7 @@ export function renderPublish(main) {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "something went wrong");
       state.textContent = "the live site is up to date";
-      result.innerHTML = `<p>done. it's live at <a href="https://mochis-recipe-book.netlify.app" target="_blank" rel="noopener">mochis-recipe-book.netlify.app</a></p><p class="hint">${
+      result.innerHTML = `<p>done. give it a minute, then it's live at <a href="https://jmichikoleo.github.io/mochis-recipe-book/" target="_blank" rel="noopener">jmichikoleo.github.io/mochis-recipe-book</a></p><p class="hint">${
         body.github === "failed"
           ? "the site is updated but saving to github didn't work. ask claude to look at it"
           : body.github === "saved"
