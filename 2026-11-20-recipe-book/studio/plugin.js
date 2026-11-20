@@ -61,7 +61,10 @@ function readBody(req, limit) {
 
 function run(cmd, args, cwd = ROOT) {
   return new Promise((resolve) => {
-    const child = spawn(cmd, args, { cwd, env: process.env });
+    // the studio runs in development mode. the build must not inherit that,
+    // or the live site would get the studio buttons.
+    const env = { ...process.env, NODE_ENV: "production" };
+    const child = spawn(cmd, args, { cwd, env });
     let out = "";
     child.stdout.on("data", (d) => (out += d));
     child.stderr.on("data", (d) => (out += d));
@@ -108,6 +111,14 @@ async function publish() {
   const build = await run("npm", ["run", "build"]);
   steps.push({ step: "build", ok: build.code === 0 });
   if (build.code !== 0) return { ok: false, steps, error: "the build failed", log: build.out.slice(-1500) };
+
+  // safety check. never ship the studio
+  const built = await readdir(join(ROOT, "dist/assets")).catch(() => []);
+  for (const f of built.filter((x) => x.endsWith(".js"))) {
+    if ((await readFile(join(ROOT, "dist/assets", f), "utf8")).includes("/__studio")) {
+      return { ok: false, steps, error: "the build still had studio code in it, so it wasn't published" };
+    }
+  }
 
   const deploy = await run("npx", ["--yes", "netlify-cli", "deploy", "--prod", "--no-build", "--dir", "dist", "--site", NETLIFY_SITE]);
   steps.push({ step: "netlify", ok: deploy.code === 0 });
