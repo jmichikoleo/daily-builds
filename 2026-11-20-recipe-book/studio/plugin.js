@@ -80,6 +80,16 @@ async function unpublished() {
   return last.trim() !== (await recipesHash());
 }
 
+// tell vite the recipe file changed and reload open pages.
+// vite's file watcher can miss a save that replaces the file, so don't wait for it.
+function refresh(server) {
+  const graphs = [server.environments?.client?.moduleGraph, server.moduleGraph].filter(Boolean);
+  for (const graph of graphs) {
+    for (const mod of graph.getModulesByFile(RECIPES_FILE) ?? []) graph.invalidateModule(mod);
+  }
+  (server.environments?.client?.hot ?? server.ws).send({ type: "full-reload" });
+}
+
 let publishing = false;
 
 // photos you uploaded and then took off a recipe shouldn't go online
@@ -165,6 +175,7 @@ export default function studio() {
             const tmp = `${RECIPES_FILE}.tmp`;
             await writeFile(tmp, serializeRecipes(recipes, categories), "utf8");
             await rename(tmp, RECIPES_FILE);
+            refresh(server);
             return send(res, 200, { ok: true });
           }
 
