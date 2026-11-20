@@ -1,0 +1,23 @@
+{
+  "port": 8470,
+  "auth": {
+    "mode": "tailscale",
+    "allowedLogins": ["you@github"]
+  },
+  "projects": [
+    { "id": "mochi-git", "name": "mochi.git", "path": "/Users/you/Desktop/mochis-project/mochi-git" },
+    { "id": "research-lab", "name": "research lab", "path": "/Users/you/Desktop/mochis-project/research-lab" }
+  ],
+  "agents": {
+    "claude": { "enabled": true, "executable": "/Users/you/.local/bin/claude" },
+    "codex": { "enabled": true, "executable": "/opt/homebrew/bin/codex" },
+    "mock": { "enabled": false }
+  },
+  "transcription": {
+    "backend": "whisper-cpp",
+    "command": "/opt/homebrew/bin/whisper-cli",
+    "model": "/Users/you/.jarvis/models/ggml-base.en.bin",
+    "language": "en",
+    "threads": 4
+  }
+}
