@@ -29,19 +29,25 @@ export const categories = ["Sweet", "Savory"];
 
 export const recipes = [
   {
-    slug: "mochi-brownies",
-    title: "Mochi brownies",
+    slug: "og-brownie",
+    title: "OG Brownie",
     category: "Sweet",
-    subtitle: "The 220 g batch",
-    note: "Sized for the 220 g of chocolate I had.",
     art: "chocolate",
     featured: true,
     draft: true,
     ingredients: [
-      { amount: "220 g", item: "chocolate" },
-      { amount: "", item: "glutinous rice flour · 찹쌀가루" },
+      { amount: "150gr", item: "chocolate, melted" },
+      { amount: "100gr", item: "butter, melted" },
+      { amount: "2", item: "eggs" },
+      { amount: "100gr", item: "sugar" },
+      { amount: "60gr", item: "flour" },
+      { amount: "20gr", item: "cocoa powder" },
     ],
     steps: [
+      "mix the melted chocolate and melted butter together",
+      "mix the eggs and sugar together and combine with the melted chocolate and butter",
+      "add the flour and cocoa powder",
+      "bake / airfry for about 30 mins until it's done!",
     ],
   },
 ];
