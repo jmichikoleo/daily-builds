@@ -17,6 +17,11 @@ const HEADER = `// src/recipes.js
 //     draft: true,                     // optional, marks it as not finished yet
 //     photo: "photos/brownies.jpg",    // optional, put the file in public/photos
 //     art: "chocolate",                // optional drawing. chocolate, whisk, pot, ricebowl, bread or plate
+//     servings: "makes 16 squares",    // optional
+//     source: "https://...",           // optional, where the recipe came from
+//     collections: ["Bakes"],          // optional, a recipe can be in several
+//     basedOn: "og-brownie",           // optional, makes this a version of another recipe
+//     outcome: "fudgier, bake 5 less", // optional, how it turned out
 //     ingredients: [
 //       { amount: "220 g", item: "chocolate" },
 //       { amount: "", item: "salt" },  // leave amount empty if you don't know it yet
@@ -37,10 +42,12 @@ export function cleanRecipe(r) {
     title: String(r.title ?? "").trim(),
     category: String(r.category ?? "").trim(),
   };
-  for (const key of ["subtitle", "note", "photo", "art"]) {
+  for (const key of ["subtitle", "note", "photo", "art", "servings", "source", "basedOn", "outcome"]) {
     const v = String(r[key] ?? "").trim();
     if (v) out[key] = v;
   }
+  const collections = [...new Set((r.collections ?? []).map((c) => String(c ?? "").trim()).filter(Boolean))];
+  if (collections.length) out.collections = collections;
   if (r.featured) out.featured = true;
   if (r.draft) out.draft = true;
   out.ingredients = (r.ingredients ?? [])
@@ -52,9 +59,10 @@ export function cleanRecipe(r) {
 
 function recipeText(r) {
   const lines = ["  {"];
-  for (const key of ["slug", "title", "category", "subtitle", "note", "photo", "art"]) {
+  for (const key of ["slug", "title", "category", "subtitle", "basedOn", "servings", "note", "outcome", "source", "photo", "art"]) {
     if (r[key] !== undefined) lines.push(`    ${key}: ${str(r[key])},`);
   }
+  if (r.collections) lines.push(`    collections: [${r.collections.map(str).join(", ")}],`);
   if (r.featured) lines.push("    featured: true,");
   if (r.draft) lines.push("    draft: true,");
   lines.push("    ingredients: [");

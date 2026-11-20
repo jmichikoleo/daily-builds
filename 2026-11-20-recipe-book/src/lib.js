@@ -8,7 +8,7 @@ function norm(text) {
   return String(text ?? "").normalize("NFC").toLowerCase().trim();
 }
 
-// matches title, subtitle, category and ingredient names
+// matches title, subtitle, category, collections and ingredient names
 export function matches(recipe, query) {
   const q = norm(query);
   if (!q) return true;
@@ -16,6 +16,7 @@ export function matches(recipe, query) {
     recipe.title,
     recipe.subtitle,
     recipe.category,
+    ...(recipe.collections ?? []),
     ...(recipe.ingredients ?? []).map((i) => i.item),
   ];
   return q.split(/\s+/).every((word) => fields.some((f) => norm(f).includes(word)));
@@ -66,6 +67,10 @@ export function validate(recipes) {
     if (!Array.isArray(r.ingredients) || !Array.isArray(r.steps)) {
       throw new Error(`${r.slug} needs ingredients and steps lists`);
     }
+    if (r.collections !== undefined && !Array.isArray(r.collections)) {
+      throw new Error(`${r.slug} collections should be a list`);
+    }
+    if (r.basedOn && r.basedOn === r.slug) throw new Error(`${r.slug} can't be a version of itself`);
   }
   return true;
 }
@@ -88,4 +93,59 @@ export function toggleFavorite(storage, slug) {
     // storage blocked, keep going for this page view
   }
   return next;
+}
+
+// ---------- collections ----------
+
+// every collection used by any recipe, a to z
+export function collectionsOf(recipes) {
+  return [...new Set(recipes.flatMap((r) => r.collections ?? []))].sort((a, b) => a.localeCompare(b));
+}
+
+export function inCollection(recipes, name) {
+  if (!name) return recipes;
+  return recipes.filter((r) => (r.collections ?? []).includes(name));
+}
+
+// ---------- versions ----------
+
+export function versionsOf(recipes, slug) {
+  return recipes.filter((r) => r.basedOn === slug);
+}
+
+export function parentOf(recipes, recipe) {
+  return recipe?.basedOn ? findBySlug(recipes, recipe.basedOn) : null;
+}
+
+// for the index. a version sits under its original when both are in the list,
+// otherwise it shows as its own row.
+export function nestVersions(list) {
+  const slugs = new Set(list.map((r) => r.slug));
+  return list
+    .filter((r) => !(r.basedOn && slugs.has(r.basedOn)))
+    .map((recipe) => ({ recipe, versions: list.filter((v) => v.basedOn === recipe.slug) }));
+}
+
+// a slug nobody else uses yet, like brownies-2
+export function uniqueSlug(recipes, base) {
+  const taken = new Set(recipes.map((r) => r.slug));
+  const root = base || "recipe";
+  if (!taken.has(root)) return root;
+  let n = 2;
+  while (taken.has(`${root}-${n}`)) n += 1;
+  return `${root}-${n}`;
+}
+
+// only real web links become clickable
+export function safeLink(url) {
+  const u = String(url ?? "").trim();
+  return /^https?:\/\/[^\s]+$/i.test(u) ? u : null;
+}
+
+export function linkHost(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
 }

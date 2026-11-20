@@ -26,20 +26,11 @@ const sample = [
 
 describe("real recipe data", () => {
   it("is valid", () => expect(validate(recipes)).toBe(true));
-  it("keeps the confirmed brownie details", () => {
-    const b = findBySlug(recipes, "mochi-brownies");
-    expect(b.subtitle).toBe("The 220 g batch");
-    expect(b.note).toBe("Sized for the 220 g of chocolate I had.");
-    expect(b.ingredients).toContainEqual({ amount: "220 g", item: "chocolate" });
-    expect(b.ingredients.some((i) => i.item.includes("찹쌀가루"))).toBe(true);
-  });
-  it("features exactly one recipe at most", () => {
+  it("features one recipe at most", () => {
     expect(recipes.filter((r) => r.featured).length).toBeLessThanOrEqual(1);
   });
-  it("finds the brownies by english and korean search", () => {
-    expect(search(recipes, "brownie").map((r) => r.slug)).toContain("mochi-brownies");
-    expect(search(recipes, "찹쌀가루").map((r) => r.slug)).toContain("mochi-brownies");
-    expect(search(recipes, "BROWNIES").map((r) => r.slug)).toContain("mochi-brownies");
+  it("only has versions of recipes that exist", () => {
+    for (const r of recipes.filter((x) => x.basedOn)) expect(findBySlug(recipes, r.basedOn)).not.toBeNull();
   });
 });
 

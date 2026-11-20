@@ -1,6 +1,15 @@
 # mochi's recipe book
 
-a small cookbook i made for myself. strawberry pink, butter yellow, one chocolate drawing.
+a small cookbook i made for myself. strawberry pink, butter yellow, little line drawings.
+
+## what it does
+
+- shelf. recipes grouped by category, filtered by collections like bakes or things to try, searched by name or ingredient
+- recipe pages. ingredients, steps, servings, notes and a link back to the original recipe
+- my versions. copy a recipe, change the amounts, write down how it turned out. versions sit under the original
+- cook mode. tick off ingredients, then one step at a time with big text and big buttons. the screen stays on and it remembers where you were
+- favorites saved on your phone
+- add it to your home screen and it opens like an app, even with bad wifi
 
 ## run it
 
@@ -24,6 +33,8 @@ the studio is where i add, edit and delete recipes. it runs on my mac mini all t
 open the mac mini's tailscale address on port 8490.
 
 - add. tap + new recipe, fill it in, tap add recipe
+- quick save. tap quick save a link or an idea on the home page. it goes into things to try as a draft
+- make a version. open a recipe and tap make a version
 - edit. open a recipe and tap edit
 - delete. open a recipe and tap delete, it asks first
 - picture. pick a drawing, or add a photo from your phone. photos get shrunk before they upload
@@ -45,7 +56,9 @@ everything lives in `src/recipes.js`. the comment at the top shows every field.
 
 - `slug` is the link name, like `#/recipe/mochi-brownies`
 - `category` can be anything. sweet and savory always show first, new ones get their own section
-- `subtitle`, `note`, `photo`, `art`, `featured` and `draft` are optional
+- `subtitle`, `note`, `photo`, `art`, `servings`, `source`, `collections`, `basedOn`, `outcome`, `featured` and `draft` are optional
+- `collections` is a list, like `["Bakes", "Things to Try"]`
+- `basedOn` is the link name of the recipe this one is a version of
 - `art` is the drawing. chocolate, whisk, pot, ricebowl, bread or plate. leave it out and sweet gets the whisk, savory gets the pot, anything else gets the plate
 - leave an ingredient amount empty and it shows as amount tbd
 
@@ -61,6 +74,8 @@ saving from the studio rewrites the whole file, so comments you add inside a rec
 - `src/main.js` the pages and the little router
 - `src/style.css` colors and layout
 - `src/art.js` the line drawings
+- `src/cook.js` cook mode
+- `public/sw.js` and `public/manifest.webmanifest` home screen and offline
 - `tests/` tests
 
 favorites are saved in the browser, so they stay on the device you saved them on.

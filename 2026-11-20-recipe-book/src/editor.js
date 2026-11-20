@@ -4,6 +4,9 @@
 
 import { slugify } from "./serialize.js";
 import { ART, artKey } from "./art.js";
+import { collectionsOf, uniqueSlug, safeLink, linkHost } from "./lib.js";
+
+const QUICK_COLLECTION = "Things to Try";
 
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -127,16 +130,41 @@ function reloadSoon() {
 }
 
 // draws the form into `main`. returns the page title.
-export function renderEditor(main, { recipe, recipes, categories }) {
+// versionOf starts a new recipe as a copy of another one
+export function renderEditor(main, { recipe, recipes, categories, versionOf = null }) {
   const isNew = !recipe;
-  const r = recipe ?? { title: "", slug: "", category: categories[0] ?? "", ingredients: [], steps: [], draft: true };
+  const r = recipe
+    ? recipe
+    : versionOf
+      ? {
+          ...structuredClone(versionOf),
+          title: `${versionOf.title} (my version)`,
+          slug: uniqueSlug(recipes, `${versionOf.slug}-my-version`),
+          basedOn: versionOf.slug,
+          featured: false,
+          draft: true,
+          outcome: "",
+          photo: "",
+        }
+      : { title: "", slug: "", category: categories[0] ?? "", ingredients: [], steps: [], draft: true };
   const allCats = [...new Set([...categories, ...recipes.map((x) => x.category)])];
-  let slugTouched = !isNew;
+  const allCollections = [...new Set([QUICK_COLLECTION, ...collectionsOf(recipes)])].sort((a, b) => a.localeCompare(b));
+  const others = recipes.filter((x) => x !== recipe && !x.basedOn);
+  let slugTouched = !isNew && !versionOf;
+  const backHref = recipe ? `#/recipe/${esc(r.slug)}` : versionOf ? `#/recipe/${esc(versionOf.slug)}` : "#/";
+  const heading = recipe ? "Edit recipe" : versionOf ? "Make a version" : "New recipe";
 
   main.innerHTML = `
-    <a class="back" href="${isNew ? "#/" : `#/recipe/${esc(r.slug)}`}">← ${isNew ? "back to recipes" : "back to the recipe"}</a>
+    <a class="back" href="${backHref}">← ${recipe || versionOf ? "back to the recipe" : "back to recipes"}</a>
     <form class="card editor" novalidate>
-      <h1 tabindex="-1">${isNew ? "New recipe" : "Edit recipe"}</h1>
+      <h1 tabindex="-1">${heading}</h1>
+      ${
+        versionOf
+          ? `<p class="hint lead-hint">a copy of ${esc(versionOf.title)}. change the amounts, swap things, then write down how it turned out</p>`
+          : !recipe
+            ? `<p class="hint lead-hint">just saving a link or an idea for later? <a href="#/quick">quick save it</a></p>`
+            : ""
+      }
 
       <div class="ed-grid">
         <label><span class="ed-label">title</span>
@@ -153,8 +181,30 @@ export function renderEditor(main, { recipe, recipes, categories }) {
         <label><span class="ed-label">subtitle <span class="opt">optional</span></span>
           <input name="subtitle" value="${esc(r.subtitle)}" placeholder="a little line under the title" />
         </label>
+        <label><span class="ed-label">servings <span class="opt">optional</span></span>
+          <input name="servings" value="${esc(r.servings)}" placeholder="serves 4, or makes 16 squares" />
+        </label>
+        <label><span class="ed-label">original recipe link <span class="opt">optional</span></span>
+          <input name="source" type="url" inputmode="url" value="${esc(r.source)}" placeholder="https://..." />
+        </label>
         <label class="wide"><span class="ed-label">batch note <span class="opt">optional</span></span>
           <input name="note" value="${esc(r.note)}" placeholder="a note to future you, shown in yellow" />
+        </label>
+        <label class="wide"><span class="ed-label">collections <span class="opt">optional</span></span>
+          <input name="collections" value="${esc((r.collections ?? []).join(", "))}" placeholder="Bakes, Weeknight Dinners" />
+          <small>separate them with commas. tap one to add it</small>
+          <span class="chips small" data-coll-suggest>${allCollections
+            .map((c) => `<button type="button" class="chip" data-add-coll="${esc(c)}">+ ${esc(c)}</button>`)
+            .join("")}</span>
+        </label>
+        <label class="wide"><span class="ed-label">a version of <span class="opt">optional</span></span>
+          <select name="basedOn">
+            <option value="">nothing, this is its own recipe</option>
+            ${others.map((o) => `<option value="${esc(o.slug)}" ${r.basedOn === o.slug ? "selected" : ""}>${esc(o.title)}</option>`).join("")}
+          </select>
+        </label>
+        <label class="wide"><span class="ed-label">how it turned out <span class="opt">optional</span></span>
+          <textarea name="outcome" rows="2" placeholder="fudgier than the original. next time bake 5 minutes less">${esc(r.outcome)}</textarea>
         </label>
       </div>
 
@@ -210,8 +260,8 @@ export function renderEditor(main, { recipe, recipes, categories }) {
       <p class="ed-error" role="alert" data-error></p>
 
       <div class="ed-actions">
-        <button type="submit" class="btn primary">${isNew ? "Add recipe" : "Save changes"}</button>
-        <a class="btn" href="${isNew ? "#/" : `#/recipe/${esc(r.slug)}`}">cancel</a>
+        <button type="submit" class="btn primary">${recipe ? "Save changes" : versionOf ? "Add version" : "Add recipe"}</button>
+        <a class="btn" href="${backHref}">cancel</a>
         ${isNew ? "" : `<button type="button" class="btn danger" data-delete>Delete recipe</button>`}
       </div>
     </form>`;
@@ -254,6 +304,16 @@ export function renderEditor(main, { recipe, recipes, categories }) {
     }
   });
   photoRemove.addEventListener("click", () => setPhoto(""));
+
+  // collections. tapping a suggestion adds it to the list
+  form.querySelectorAll("[data-add-coll]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const field = form.elements.collections;
+      const list = splitList(field.value);
+      if (!list.includes(b.dataset.addColl)) list.push(b.dataset.addColl);
+      field.value = list.join(", ");
+    })
+  );
 
   const renumber = () =>
     steps.querySelectorAll(".ed-num").forEach((el, i) => {
@@ -299,6 +359,11 @@ export function renderEditor(main, { recipe, recipes, categories }) {
       note: f.note.value,
       photo: f.photo.value,
       art: f.art.value,
+      servings: f.servings.value,
+      source: f.source.value.trim(),
+      collections: splitList(f.collections.value),
+      basedOn: f.basedOn.value,
+      outcome: f.outcome.value,
       featured: f.featured.checked,
       draft: f.draft.checked,
       ingredients: [...ings.children].map((li) => ({
@@ -312,8 +377,14 @@ export function renderEditor(main, { recipe, recipes, categories }) {
     if (!next.category) return showError("pick a category, like Sweet or Savory");
     const clash = recipes.find((x) => x.slug === next.slug && x !== recipe);
     if (clash) return showError(`“${clash.title}” already uses that link name`);
+    if (next.source && !safeLink(next.source)) return showError("the original recipe link should start with https://");
+    if (next.basedOn === next.slug) next.basedOn = "";
 
     let list = recipe ? recipes.map((x) => (x === recipe ? next : x)) : [...recipes, next];
+    // if the link name changed, keep its versions pointing at it
+    if (recipe && recipe.slug !== next.slug) {
+      list = list.map((x) => (x.basedOn === recipe.slug ? { ...x, basedOn: next.slug } : x));
+    }
     if (next.featured) list = list.map((x) => (x === next ? x : { ...x, featured: false }));
 
     showError("");
@@ -323,22 +394,91 @@ export function renderEditor(main, { recipe, recipes, categories }) {
       await saveRecipes(list, categories);
       reloadSoon();
     } catch (err) {
-      history.replaceState(null, "", isNew ? "#/new" : `#/edit/${recipe.slug}`);
+      history.replaceState(null, "", recipe ? `#/edit/${recipe.slug}` : versionOf ? `#/version/${versionOf.slug}` : "#/new");
       showError(`couldn't save. ${err.message}`);
     }
   });
 
   form.querySelector("[data-delete]")?.addEventListener("click", () => deleteRecipe(recipe, recipes, categories, showError));
 
-  return isNew ? "New recipe" : `Edit ${r.title}`;
+  return heading === "Edit recipe" ? `Edit ${r.title}` : heading;
+}
+
+function splitList(text) {
+  return [...new Set(String(text ?? "").split(",").map((x) => x.trim()).filter(Boolean))];
+}
+
+// quick save. a link or a rough idea now, the full recipe later
+export function renderQuick(main, { recipes, categories }) {
+  const allCats = [...new Set([...categories, ...recipes.map((x) => x.category)])];
+  main.innerHTML = `
+    <a class="back" href="#/">← back to recipes</a>
+    <form class="card editor quick" novalidate>
+      <h1 tabindex="-1">Quick save</h1>
+      <p class="hint lead-hint">drop in a link or a rough idea. it goes into ${QUICK_COLLECTION} as a draft so you can fill it in later</p>
+      <div class="ed-grid">
+        <label class="wide"><span class="ed-label">link <span class="opt">optional</span></span>
+          <input name="source" type="url" inputmode="url" placeholder="https://..." />
+        </label>
+        <label class="wide"><span class="ed-label">what is it</span>
+          <input name="title" placeholder="that crispy rice salad" />
+        </label>
+        <label class="wide"><span class="ed-label">rough idea <span class="opt">optional</span></span>
+          <textarea name="note" rows="3" placeholder="saw it on a reel, uses gochujang and lots of herbs"></textarea>
+        </label>
+        <label><span class="ed-label">category</span>
+          <select name="category">${allCats.map((c) => `<option>${esc(c)}</option>`).join("")}</select>
+        </label>
+      </div>
+      <p class="ed-error" role="alert" data-error></p>
+      <div class="ed-actions">
+        <button type="submit" class="btn primary">Save it for later</button>
+        <a class="btn" href="#/new">write the full recipe instead</a>
+      </div>
+    </form>`;
+  const form = main.querySelector("form");
+  const errorBox = form.querySelector("[data-error]");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = form.elements;
+    const source = f.source.value.trim();
+    if (source && !safeLink(source)) return (errorBox.textContent = "the link should start with https://");
+    const title = f.title.value.trim() || (source ? `something from ${linkHost(source)}` : "");
+    if (!title) return (errorBox.textContent = "add a link or say what it is");
+    const slug = uniqueSlug(recipes, slugify(title) || "idea");
+    const next = {
+      slug,
+      title,
+      category: f.category.value,
+      source,
+      note: f.note.value,
+      collections: [QUICK_COLLECTION],
+      draft: true,
+      ingredients: [],
+      steps: [],
+    };
+    errorBox.textContent = "";
+    try {
+      history.replaceState(null, "", `#/recipe/${slug}`);
+      await saveRecipes([...recipes, next], categories);
+      reloadSoon();
+    } catch (err) {
+      history.replaceState(null, "", "#/quick");
+      errorBox.textContent = `couldn't save. ${err.message}`;
+    }
+  });
+  return "Quick save";
 }
 
 export async function deleteRecipe(recipe, recipes, categories, onError = alert) {
-  if (!confirm(`Delete “${recipe.title}”? this takes it out of src/recipes.js.`)) return;
+  const kids = recipes.filter((x) => x.basedOn === recipe.slug).length;
+  const extra = kids ? ` its ${kids === 1 ? "version stays" : `${kids} versions stay`} as ${kids === 1 ? "its own recipe" : "their own recipes"}.` : "";
+  if (!confirm(`Delete “${recipe.title}”? this takes it out of src/recipes.js.${extra}`)) return;
   try {
     history.replaceState(null, "", "#/");
+    // its versions become their own recipes
     await saveRecipes(
-      recipes.filter((x) => x !== recipe),
+      recipes.filter((x) => x !== recipe).map((x) => (x.basedOn === recipe.slug ? { ...x, basedOn: "" } : x)),
       categories
     );
     reloadSoon();

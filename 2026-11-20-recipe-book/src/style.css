@@ -1011,3 +1011,409 @@ h1 {
   opacity: 0.6;
   cursor: wait;
 }
+
+/* collections */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -8px 0 24px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--cocoa);
+  background: var(--ivory);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--rose);
+  color: var(--rose);
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--strawberry);
+  border-color: var(--rose);
+  color: var(--cocoa);
+}
+
+.chips.small {
+  margin: 12px 0 0;
+  gap: 6px;
+}
+
+.chips.small .chip {
+  min-height: 36px;
+  font-size: 14px;
+  padding: 4px 12px;
+}
+
+.studio-quick {
+  margin: -12px 0 20px;
+  font-size: 15px;
+}
+
+.studio-quick a {
+  color: var(--rose);
+  font-weight: 500;
+  text-underline-offset: 4px;
+}
+
+/* versions in the index */
+
+.versions {
+  margin: -4px 0 4px 18px;
+}
+
+.row-version {
+  min-height: 40px;
+  padding: 6px 0;
+}
+
+.row-version .row-title {
+  font-size: 19px;
+}
+
+.row-arrow {
+  color: var(--rose);
+}
+
+/* recipe page extras */
+
+.version-of {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.version-of a {
+  color: var(--rose);
+  text-underline-offset: 3px;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin-top: 10px;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.meta:empty {
+  display: none;
+}
+
+.meta a {
+  color: var(--rose);
+  text-underline-offset: 3px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.actions .btn,
+.actions.dev-tools {
+  margin: 0;
+}
+
+.actions.dev-tools {
+  margin-top: 10px;
+}
+
+.outcome {
+  margin: 16px 0 0;
+  padding: 12px 16px;
+  border: 1px solid var(--rose);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: #fffafa;
+}
+
+.outcome p {
+  margin: 0;
+}
+
+.outcome-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rose);
+  margin-bottom: 4px !important;
+}
+
+.my-versions {
+  margin-top: 36px;
+}
+
+.my-versions h2 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 26px;
+  margin: 0 0 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--cocoa);
+}
+
+.my-versions ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.my-versions li {
+  padding: 10px 0;
+  border-bottom: 1px dotted var(--line-strong);
+}
+
+.my-versions li a {
+  text-decoration: none;
+}
+
+.my-versions li a:hover .row-title {
+  color: var(--rose);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.my-versions li p {
+  margin: 4px 0 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+/* studio extras */
+
+.editor select {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--cocoa);
+  background: var(--ivory);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.lead-hint {
+  margin: -12px 0 20px !important;
+  font-size: 15px !important;
+}
+
+.lead-hint a {
+  color: var(--rose);
+}
+
+.quick {
+  max-width: 640px;
+}
+
+/* cook mode */
+
+body.cooking .site-header {
+  display: none;
+}
+
+body.cooking main.wrap {
+  padding-top: 16px;
+}
+
+.cook {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.cook-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cook-top .back {
+  margin: 0;
+}
+
+.cook-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--muted);
+}
+
+.cook-progress {
+  display: flex;
+  gap: 6px;
+  margin: 14px 0 28px;
+}
+
+.cook-progress span {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.cook-progress .past {
+  background: var(--strawberry);
+}
+
+.cook-progress .on {
+  background: var(--rose);
+}
+
+.cook-h {
+  font-size: clamp(34px, 7vw, 48px);
+  margin-bottom: 6px;
+}
+
+.cook-hint {
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+
+.cook-count {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rose);
+  margin: 0 0 12px;
+}
+
+.cook-step {
+  font-size: clamp(28px, 5.4vw, 40px);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  min-height: 4.2em;
+}
+
+.cook-ings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.cook-ing {
+  display: grid;
+  grid-template-columns: 32px 6em 1fr;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 20px;
+  text-align: left;
+  color: var(--cocoa);
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.cook-ing .box {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--rose);
+  border-radius: 6px;
+  color: var(--ivory);
+  font-size: 18px;
+}
+
+.cook-ing[aria-pressed="true"] {
+  background: #fdf3f3;
+  color: var(--muted);
+}
+
+.cook-ing[aria-pressed="true"] .box {
+  background: var(--rose);
+}
+
+.cook-ing[aria-pressed="true"] span:last-child {
+  text-decoration: line-through;
+  text-decoration-color: var(--rose);
+}
+
+.cook-amt {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cook-nav {
+  display: flex;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.btn.big {
+  flex: 1;
+  justify-content: center;
+  min-height: 64px;
+  font-size: 20px;
+  margin: 0;
+}
+
+.cook-peek {
+  margin-top: 28px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.cook-peek summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--rose);
+  font-weight: 500;
+}
+
+.cook-peek ul {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  font-size: 18px;
+}
+
+.link-btn {
+  margin-top: 24px;
+  min-height: 44px;
+  padding: 0;
+  font: inherit;
+  font-size: 15px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .cook-ing {
+    grid-template-columns: 30px 4.5em 1fr;
+    font-size: 18px;
+  }
+}

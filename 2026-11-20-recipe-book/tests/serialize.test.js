@@ -19,7 +19,12 @@ describe("serializeRecipes", () => {
     const mod = await load(serializeRecipes(recipes.map(cleanRecipe), categories));
     expect(mod.categories).toEqual(categories);
     expect(mod.recipes).toEqual(recipes.map(cleanRecipe));
-    expect(mod.recipes[0].ingredients[1].item).toBe("glutinous rice flour · 찹쌀가루");
+  });
+
+  it("keeps korean text exactly", async () => {
+    const r = cleanRecipe({ slug: "k", title: "K", category: "Sweet", ingredients: [{ amount: "", item: "glutinous rice flour · 찹쌀가루" }], steps: [] });
+    const mod = await load(serializeRecipes([r], ["Sweet"]));
+    expect(mod.recipes[0].ingredients[0].item).toBe("glutinous rice flour · 찹쌀가루");
   });
 
   it("survives quotes, backslashes and new lines in text", async () => {

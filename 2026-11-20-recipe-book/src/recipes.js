@@ -14,6 +14,11 @@
 //     draft: true,                     // optional, marks it as not finished yet
 //     photo: "photos/brownies.jpg",    // optional, put the file in public/photos
 //     art: "chocolate",                // optional drawing. chocolate, whisk, pot, ricebowl, bread or plate
+//     servings: "makes 16 squares",    // optional
+//     source: "https://...",           // optional, where the recipe came from
+//     collections: ["Bakes"],          // optional, a recipe can be in several
+//     basedOn: "og-brownie",           // optional, makes this a version of another recipe
+//     outcome: "fudgier, bake 5 less", // optional, how it turned out
 //     ingredients: [
 //       { amount: "220 g", item: "chocolate" },
 //       { amount: "", item: "salt" },  // leave amount empty if you don't know it yet
