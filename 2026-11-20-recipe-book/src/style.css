@@ -127,8 +127,8 @@ nav a[aria-current="page"] {
   text-decoration-thickness: 1px;
 }
 
-main {
-  padding-top: 36px;
+main.wrap {
+  padding-top: 56px;
   padding-bottom: 72px;
 }
 
@@ -599,8 +599,8 @@ h1 {
   .wrap {
     padding: 0 16px;
   }
-  main {
-    padding-top: 24px;
+  main.wrap {
+    padding-top: 32px;
   }
   .home-grid {
     grid-template-columns: 1fr;
