@@ -85,6 +85,9 @@ h1:focus {
 
 .header-row {
   display: flex;
+  flex-wrap: wrap;
+  column-gap: 16px;
+  row-gap: 0;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -102,10 +105,16 @@ h1:focus {
 
 nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
 }
 
+.wordmark + nav {
+  margin-left: auto;
+}
+
 nav a {
+  white-space: nowrap;
   font-size: 15px;
   font-weight: 500;
   text-decoration: none;
@@ -644,5 +653,235 @@ h1 {
 @media (prefers-reduced-motion: no-preference) {
   html {
     scroll-behavior: smooth;
+  }
+}
+
+/* editor, only shows while npm run dev runs */
+
+.nav-new {
+  color: var(--rose);
+  border: 1px dashed var(--rose);
+  margin-left: 6px;
+}
+
+.dev-tools {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: 8px;
+  flex-wrap: wrap;
+}
+
+.btn.danger {
+  color: #8f2f37;
+  border-color: #c99a9f;
+}
+
+.btn.danger:hover {
+  background: #fff2f2;
+  color: #8f2f37;
+  border-color: #8f2f37;
+}
+
+.btn.primary {
+  background: var(--cocoa);
+  border-color: var(--cocoa);
+  color: var(--ivory);
+}
+
+.btn.primary:hover {
+  background: var(--rose);
+  border-color: var(--rose);
+  color: var(--ivory);
+}
+
+.btn.small {
+  min-height: 44px;
+  font-size: 15px;
+  padding: 8px 14px;
+}
+
+.editor h1 {
+  margin-bottom: 24px;
+}
+
+.editor input:not([type="checkbox"]),
+.editor textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--cocoa);
+  background: var(--ivory);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.editor input::placeholder,
+.editor textarea::placeholder {
+  color: #a8968f;
+  font-weight: 400;
+}
+
+.editor textarea {
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.editor input:focus-visible,
+.editor textarea:focus-visible {
+  outline-offset: 0;
+  border-color: var(--rose);
+}
+
+.ed-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 20px;
+}
+
+.ed-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ed-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.ed-grid small,
+.hint {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+  margin: 0;
+}
+
+.opt {
+  font-weight: 400;
+  font-style: italic;
+}
+
+.ed-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 18px 0 8px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--rose);
+}
+
+.editor fieldset {
+  border: 0;
+  border-top: 1px solid var(--cocoa);
+  margin: 24px 0 0;
+  padding: 12px 0 0;
+}
+
+.editor legend {
+  font-family: var(--serif);
+  font-size: 26px;
+  padding: 0 10px 0 0;
+}
+
+.ed-list {
+  list-style: none;
+  margin: 10px 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.ed-ing {
+  display: grid;
+  grid-template-columns: 8em 1fr 44px;
+  gap: 8px;
+}
+
+.ed-step {
+  display: grid;
+  grid-template-columns: 28px 1fr 44px;
+  gap: 8px;
+  align-items: start;
+}
+
+.ed-num {
+  width: 28px;
+  height: 28px;
+  margin-top: 9px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--rose);
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rose);
+}
+
+.icon-btn {
+  width: 44px;
+  height: 46px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  color: #8f2f37;
+  border-color: #c99a9f;
+}
+
+.ed-error {
+  color: #8f2f37;
+  font-weight: 500;
+  min-height: 1.5em;
+  margin: 18px 0 0;
+}
+
+.ed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.ed-actions .danger {
+  margin-left: auto;
+}
+
+@media (max-width: 760px) {
+  .ed-grid {
+    grid-template-columns: 1fr;
+  }
+  .ed-ing {
+    grid-template-columns: 6em 1fr 44px;
+  }
+  .ed-actions .danger {
+    margin-left: 0;
+  }
+  .dev-tools {
+    margin-left: 0;
   }
 }

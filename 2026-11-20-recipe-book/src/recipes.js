@@ -1,5 +1,6 @@
 // src/recipes.js
 // this is the only file you need to touch to add or change a recipe.
+// you can also use the editor while `npm run dev` is running, it rewrites this file for you.
 //
 // each recipe looks like this
 //
@@ -37,10 +38,8 @@ export const recipes = [
     ingredients: [
       { amount: "220 g", item: "chocolate" },
       { amount: "", item: "glutinous rice flour · 찹쌀가루" },
-      // still to fill in, the rest of the ingredients and their amounts
     ],
     steps: [
-      // still to fill in, the method
     ],
   },
 ];

@@ -199,6 +199,11 @@ function recipeView(slug) {
           <span aria-hidden="true">${saved ? "♥" : "♡"}</span>
           <span>${saved ? "Saved" : "Save recipe"}</span>
         </button>
+        ${
+          import.meta.env.DEV
+            ? `<span class="dev-tools"><a class="btn" href="#/edit/${esc(r.slug)}">Edit</a><button type="button" class="btn danger" data-delete>Delete</button></span>`
+            : ""
+        }
       </header>
       ${r.note ? `<p class="note">${esc(r.note)}</p>` : ""}
       ${photo ? `<img class="photo" src="${esc(photo)}" alt="${esc(r.title)}" />` : ""}
@@ -234,19 +239,37 @@ function recipeView(slug) {
     btn.children[0].textContent = on ? "♥" : "♡";
     btn.children[1].textContent = on ? "Saved" : "Save recipe";
   });
+  if (import.meta.env.DEV) {
+    main.querySelector("[data-delete]").addEventListener("click", async () => {
+      const { deleteRecipe } = await import("./editor.js");
+      deleteRecipe(r, recipes, categories);
+    });
+  }
   return r.title;
+}
+
+// add and edit screens, dev only
+async function editorView(slug) {
+  const recipe = slug ? findBySlug(recipes, slug) : null;
+  if (slug && !recipe) return recipeView(slug);
+  const { renderEditor } = await import("./editor.js");
+  return renderEditor(main, { recipe, recipes, categories });
 }
 
 // ---------- router ----------
 
 let firstRender = true;
 
-function route() {
+async function route() {
   const hash = location.hash.replace(/^#\/?/, "");
   const [section, slug] = hash.split("/");
   let title;
   let nav = "";
-  if (section === "recipe" && slug) {
+  if (import.meta.env.DEV && section === "new") {
+    title = await editorView(null);
+  } else if (import.meta.env.DEV && section === "edit" && slug) {
+    title = await editorView(decodeURIComponent(slug));
+  } else if (section === "recipe" && slug) {
     title = recipeView(decodeURIComponent(slug));
   } else if (section === "recipes") {
     title = allView();
@@ -257,6 +280,7 @@ function route() {
   } else {
     title = homeView();
   }
+  if (section === "new") nav = "new";
   document.title = title === "Recipe book" ? SITE : `${title} · ${SITE}`;
   document.querySelectorAll("[data-nav]").forEach((a) => {
     if (a.dataset.nav === nav) a.setAttribute("aria-current", "page");
@@ -273,5 +297,8 @@ function route() {
 window.addEventListener("storage", () => {
   favorites = readFavorites(storage);
 });
+if (import.meta.env.DEV) {
+  document.querySelector("nav").insertAdjacentHTML("beforeend", `<a href="#/new" data-nav="new" class="nav-new">+ New recipe</a>`);
+}
 window.addEventListener("hashchange", route);
 route();
