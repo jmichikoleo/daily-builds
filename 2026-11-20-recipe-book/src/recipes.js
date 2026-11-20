@@ -39,7 +39,6 @@ export const recipes = [
     category: "Sweet",
     art: "chocolate",
     featured: true,
-    draft: true,
     ingredients: [
       { amount: "150gr", item: "chocolate, melted" },
       { amount: "100gr", item: "butter, melted" },
