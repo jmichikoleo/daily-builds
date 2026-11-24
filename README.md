@@ -15,3 +15,5 @@
 261120 -- Jarvis -- Node + TypeScript click-to-talk console for Claude Code and Codex. say what you want, and the agent works in the project you picked and streams back, over a private Tailscale link.
 
 261120 -- mochi's recipe book -- Vite + vanilla JS recipe site in strawberry pink and butter yellow. a recipe library, shareable recipe pages, search that reads 찹쌀가루, and favorites saved on your phone.
+
+261124 -- Internet Passport -- Vite + React + TypeScript passport for exploring the web. visit 109 curated sites, collect hand drawn stamps, follow weekly expeditions and find hidden places.
