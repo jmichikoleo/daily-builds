@@ -143,7 +143,15 @@ any host that supports long lived websockets works (fly.io, render, railway, a v
 tailscale funnel --bg --https=10000 http://127.0.0.1:4460
 ```
 
-funnel has to be allowed for the machine in the tailscale admin console first. a cloudflare tunnel works the same way.
+funnel has to be allowed for the machine in the tailscale admin console first.
+
+with no accounts at all, a cloudflare quick tunnel works too
+
+```bash
+cloudflared tunnel --no-autoupdate --protocol http2 --url http://127.0.0.1:4460
+```
+
+it prints a random https url on trycloudflare.com. websockets work through it. the url changes every time the tunnel restarts, so check the log for the current one. `--protocol http2` helps on networks that block udp. if your own dns cannot resolve the new name yet, other people usually still can.
 
 ## inviting friends
 

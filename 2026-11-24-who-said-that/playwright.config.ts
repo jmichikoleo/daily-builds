@@ -14,6 +14,8 @@ export default defineConfig({
     channel: process.env.E2E_CHANNEL ?? 'chrome',
     trace: 'retain-on-failure',
     actionTimeout: 6_000,
+    // e.g. E2E_HOST_RULES='MAP example.trycloudflare.com 104.16.231.132' when local DNS cannot resolve the public host
+    launchOptions: process.env.E2E_HOST_RULES ? { args: [`--host-resolver-rules=${process.env.E2E_HOST_RULES}`] } : undefined,
     viewport: { width: 1280, height: 860 },
   },
   webServer: process.env.E2E_BASE_URL
