@@ -1,0 +1,35 @@
+:root {
+  --pink: #ffd1d3;
+  --butter: #ffe9ae;
+  --lavender: #dccdf8;
+  --baby: #dcebfc;
+  --mint: #ddebcf;
+  --cream: #fff9f0;
+  --ink: #29252e;
+  --cherry: #e85d75;
+
+  /* stronger accents */
+  --pink-hot: #ff8fa3;
+  --butter-hot: #ffc94d;
+  --lavender-hot: #9b7be8;
+  --baby-hot: #5f9ff0;
+  --mint-hot: #6cc46a;
+  --cherry-deep: #c63f5a;
+  --ink-soft: #5a5263;
+  --paper: #fffdf8;
+
+  --display: 'Bagel Fat One', 'Arial Black', system-ui, sans-serif;
+  --body: 'DM Sans Variable', 'DM Sans', system-ui, -apple-system, sans-serif;
+  --mono: 'Space Mono', ui-monospace, 'SFMono-Regular', monospace;
+  --pixel: 'VT323', ui-monospace, monospace;
+
+  --line: 3px solid var(--ink);
+  --line-thin: 2px solid var(--ink);
+  --shadow: 5px 5px 0 var(--ink);
+  --shadow-sm: 3px 3px 0 var(--ink);
+  --shadow-lg: 8px 8px 0 var(--ink);
+  --radius: 6px;
+  --gutter: clamp(16px, 3vw, 32px);
+  --maxw: 1240px;
+  color-scheme: light;
+}

@@ -17,3 +17,5 @@
 261120 -- mochi's recipe book -- Vite + vanilla JS recipe site in strawberry pink and butter yellow. a recipe library, shareable recipe pages, search that reads 찹쌀가루, and favorites saved on your phone.
 
 261124 -- Internet Passport -- Vite + React + TypeScript passport for exploring the web. visit 109 curated sites, collect hand drawn stamps, follow weekly expeditions and find hidden places.
+
+261124 -- Who Said That? -- Node + Socket.IO + React multiplayer party game for discord calls. answer anonymously, accuse your friends, survive the dramatic reveal. 330 questions, 10 special rounds, awards and friendship intelligence reports.

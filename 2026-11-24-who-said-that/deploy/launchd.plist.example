@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- copy to ~/Library/LaunchAgents/com.example.who-said-that.plist and replace /PATH/TO -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.example.who-said-that</string>
+  <key>WorkingDirectory</key><string>/PATH/TO/2026-11-24-who-said-that</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>scripts/supervise.mjs</string>
+    <string>server/index.ts</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NODE_ENV</key><string>production</string>
+    <key>HOST</key><string>127.0.0.1</string>
+    <key>PORT</key><string>4460</string>
+    <key>TRUST_PROXY</key><string>1</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/tmp/who-said-that.log</string>
+  <key>StandardErrorPath</key><string>/tmp/who-said-that.log</string>
+</dict>
+</plist>
