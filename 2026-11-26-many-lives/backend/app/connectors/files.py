@@ -11,7 +11,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 from .base import Connector, Ctx, walk
-from ..redact import looks_sensitive
+from ..redact import is_forbidden, looks_sensitive
 
 TEXT_EXT = (".md", ".markdown", ".txt", ".json", ".csv", ".html", ".htm", ".xml", ".ics", ".pdf", ".docx",
             ".bib", ".ris", ".zip", ".jpg", ".jpeg", ".png", ".heic", ".gif", ".webp")
@@ -138,6 +138,36 @@ def guess_kind(f: Path, text: str) -> str:
     return "note"
 
 
+BULK_DIRS = {"data", "data_peek", "raw", "upload", "uploads", "render", "renders", "textures", "volumes", "cache", "checkpoints",
+             "outputs", "frames", "dataset", "datasets", "logs", "tmp", "artifacts", "scheduled", "assets", "images"}
+FRAME = re.compile(r"^\d{2,6}$")
+
+
+def personal_files(roots, max_depth=5):
+    """personal writing, not bulk data. skips dataset style folders, numbered render frames, and any folder
+    that holds over 150 files of one type (a dataset, an export dump or an image sequence)."""
+    import os
+    from collections import Counter
+    for root in roots:
+        root = root.expanduser()
+        base = len(root.parts)
+        for dirpath, dirnames, filenames in os.walk(root):
+            p = Path(dirpath)
+            dirnames[:] = [d for d in dirnames if not d.startswith(".") and d.lower() not in BULK_DIRS
+                           and not is_forbidden(p / d / "x")]
+            if len(p.parts) - base >= max_depth:
+                dirnames[:] = []
+            kinds = Counter(Path(f).suffix.lower() for f in filenames)
+            for fn in filenames:
+                fp = p / fn
+                ext = fp.suffix.lower()
+                if fn.startswith(".") or ext not in TEXT_EXT or is_forbidden(fp) or kinds[ext] > 150 or FRAME.match(fp.stem) \
+                        or ext == ".json" or re.match(r"^\d{6,}", fp.stem):
+                    # json is machine output and long digit names are documents from datasets, not your writing
+                    continue
+                yield fp
+
+
 class Documents(Connector):
     def discover(self, con):
         found = []
@@ -150,7 +180,7 @@ class Documents(Connector):
                 "detail": {"folders": found}}
 
     def sync(self, ctx: Ctx):
-        for f in walk(ctx.paths, max_depth=5, suffixes=TEXT_EXT):
+        for f in personal_files(ctx.paths):
             try:
                 if f.stat().st_size > 40_000_000:
                     continue
@@ -168,16 +198,17 @@ class Documents(Connector):
                                 ev.get("description", "")[:500], {"calendar": f.name})
                 elif ext == ".bib":
                     for e in parse_bibtex(f.read_text(errors="ignore")):
-                        ctx.put(f"bib:{e['key']}", "paper", f"{e.get('year','')[:4] or '1970'}-01-01T00:00:00+00:00",
+                        # dated by when the reference file was saved. the paper's own year is kept in meta
+                        ctx.put(f"bib:{e['key']}", "paper", mtime,
                                 e.get("title", e["key"]), e.get("abstract", "") + " " + e.get("keywords", ""),
                                 {"authors": e.get("author", ""), "venue": e.get("journal") or e.get("booktitle"),
-                                 "file": f.name})
+                                 "year": e.get("year"), "file": f.name})
                 elif ext == ".ris":
                     for e in parse_ris(f.read_text(errors="ignore")):
                         if e.get("title"):
-                            ctx.put(f"ris:{e['title'][:120]}", "paper", f"{e.get('year') or '1970'}-01-01T00:00:00+00:00",
+                            ctx.put(f"ris:{e['title'][:120]}", "paper", mtime,
                                     e["title"], e.get("abstract", "") + " " + " ".join(e.get("keywords", [])),
-                                    {"authors": e.get("author", []), "venue": e.get("journal"), "file": f.name})
+                                    {"authors": e.get("author", []), "venue": e.get("journal"), "year": e.get("year"), "file": f.name})
                 elif ext == ".csv":
                     text = f.read_text(errors="ignore")
                     rows = list(csv.reader(io.StringIO(text)))

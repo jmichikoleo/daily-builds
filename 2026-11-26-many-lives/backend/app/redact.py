@@ -44,7 +44,9 @@ def is_forbidden(path: Path) -> bool:
 
 
 SENSITIVE_HINTS = re.compile(
-    r"(?i)(passport|여권|주민등록|bank|계좌|salary|급여|tax|세금|medical|진단|health|insurance|보험|transcript|성적증명|visa|비자|외국인등록)"
+    r"(?i)(?<![a-z])(passport|bank ?statement|bank ?account|salary|payslip|tax ?return|tax ?invoice|medical|diagnosis|"
+    r"health ?record|insurance|visa|transcript of records|academic transcript|residence card|alien registration)(?![a-z])"
+    r"|여권|주민등록|계좌|급여|세금|진단|보험|성적증명|비자|외국인등록"
 )
 
 
