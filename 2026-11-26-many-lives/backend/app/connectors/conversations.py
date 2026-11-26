@@ -13,9 +13,16 @@ TAGS = re.compile(r"<(system-reminder|command-[a-z\-]+|local-command-stdout|past
 ANY_TAG = re.compile(r"</?[a-z_\-]+(?: [^>]*)?>")
 
 
+# app and harness notices (background task results, session events) are logged as user turns. they are not your words.
+WRAPPED = re.compile(r"<([a-z][a-z0-9_\-]*)(?: [^>]*)?>.*?</\1>", re.S)
+NOISE = re.compile(r"\btoolu_[A-Za-z0-9]+|(?:/private)?/(?:tmp|var/folders)/\S+|\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b|\b[a-z0-9]{9}\b(?=\s+toolu_)")
+
+
 def clean_prompt(t: str) -> str:
     t = TAGS.sub(" ", t or "")
+    t = WRAPPED.sub(" ", t)
     t = ANY_TAG.sub(" ", t)
+    t = NOISE.sub(" ", t)
     return re.sub(r"\s+", " ", t).strip()
 
 

@@ -69,7 +69,7 @@ ARCHETYPES = {
                     room="a market stall at dawn, the sign half painted",
                     palette=["#FFE9AE", "#40364D", "#C8DDF2"], motif="stall"),
 }
-GIVEN = ["Mira", "Juno", "Odile", "Pip", "Sae", "Tula", "Wren", "Ilse", "Noor", "Bea", "Kiko", "Lumi", "Rhea", "Yuna",
+GIVEN = ["Mira", "Juno", "Odile", "Vera", "Sae", "Tula", "Wren", "Ilse", "Noor", "Bea", "Kiko", "Lumi", "Rhea", "Yuna",
          "Dara", "Sol", "Ines", "Mochi", "Fen", "Ama"]
 LORE_TRAITS = {
     "scholar": ["keeps a separate notebook just for footnotes", "believes every table needs one more column",
